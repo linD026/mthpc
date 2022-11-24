@@ -27,4 +27,6 @@ clean:
 	@rm -f $(STATIC_BIN)
 
 indent:
-	clang-format -i src/*.[ch]
+	clang-format -i include/*.[ch]
+	clang-format -i include/*/*.[ch]
+	clang-format -i src/*/*.[ch]

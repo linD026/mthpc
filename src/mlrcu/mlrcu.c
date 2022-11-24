@@ -17,7 +17,7 @@ static inline struct mlrcu_layer *mlrcu_layer_ctor(unsigned int order)
     struct mlrcu_layer *layer = malloc(sizeof(struct mlrcu_layer));
     if (!layer)
         return NULL;
-    
+
     layer->local_lock = 0;
     layer->data = NULL;
     layer->order = order;
@@ -39,7 +39,8 @@ void mlrcu_update(struct mlrcu_layer *layer, void *data)
     void *old_data = NULL;
     if (!layer)
         return;
-    old_data = atomic_exchange_explicit(&layer->data, data, memory_order_relaxed);
+    old_data =
+        atomic_exchange_explicit(&layer->data, data, memory_order_relaxed);
     atomic_fetch_add_explicit(&layer->updated, 1, memory_order_relaxed);
 
     mlrcu_recycle(layer, old_data);
@@ -79,5 +80,4 @@ int main(void)
         thrd_join(th_read[i], NULL);
     for (int i = 0; i < nr_thread; i++)
         thrd_join(&th_write[i], NULL);
-
 }

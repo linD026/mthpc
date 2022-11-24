@@ -6,5 +6,3 @@ static mthpc_noinline int thread_worker(void *args)
     // barrier
     // self function
 }
-
-

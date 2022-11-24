@@ -10,7 +10,7 @@ struct mthpc_barrier {
     pthread_mutex_t lock;
 } __mthpc_aligned__;
 
-#define MTHPC_BARRIER_INIT                                             \
+#define MTHPC_BARRIER_INIT                                       \
     {                                                            \
         .flag = 0, .count = 0, .lock = PTHREAD_MUTEX_INITIALIZER \
     }
