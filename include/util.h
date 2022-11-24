@@ -3,7 +3,7 @@
 
 /*
  * common.h header helps us to reduce the words. It doesn't means that
- * mpthc supports other compiler and thread library than gcc and pthread.
+ * mthpc supports other compiler and thread library than gcc and pthread.
  */
 
 #define MTHPC_COHERENCE_SIZE 128
