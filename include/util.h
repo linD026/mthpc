@@ -9,7 +9,7 @@
 #define MTHPC_COHERENCE_SIZE 128
 #define __mthpc_aligned__ __attribute__((aligned(MTHPC_COHERENCE_SIZE)))
 
-#define mthpc_barrier() asm volatile("" : : : "memory")
+#define mthpc_cmb() asm volatile("" : : : "memory")
 
 #define mthpc_likely(x) __builtin_expect(!!(x), 1)
 #define mthpc_unlikely(x) __builtin_expect(!!(x), 0)
