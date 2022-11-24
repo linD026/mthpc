@@ -16,7 +16,7 @@
 
 #define MTHPC_BUG_ON(cond, fmt, ...)                                 \
     do {                                                             \
-        if ((cond)) {                                                \
+        if (mthpc_unlikely(cond)) {                                  \
             mthpc_printdg(fmt "\n", __VA_ARGS__) exit(EXIT_FAILURE); \
             exit(EXIT_FAILURE);                                      \
         }                                                            \
@@ -24,7 +24,7 @@
 
 #define MTHPC_WARN_ON(cond, fmt, ...)            \
     do {                                         \
-        if ((cond))                              \
+        if (mthpc_unlikely(cond))                \
             mthpc_printdg(fmt "\n", __VA_ARGS__) \
     } while (0)
 
