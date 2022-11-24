@@ -8,7 +8,7 @@ CFLAGS:=-g
 CFLAGS+=-Wall
 CFLAGS+=-O1
 
-
+SRC:=src/barrier/barrier.c
 SRC:=src/mlrcu/mlrcu.c
 
 OBJ:=$(SRC:.c=.o)
