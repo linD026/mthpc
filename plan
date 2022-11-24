@@ -1,0 +1,14 @@
+RAII style
+
+scoped_lock(rcu, mutex, ...) framework
+debug framework
+
+mlrcu
+simple rcu
+hazard pointer
+concurrent linked list
+** hash table
+receiver and sender
+
+workqueue
+softirq
