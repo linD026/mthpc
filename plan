@@ -16,7 +16,6 @@ work(){
 }
 
 
-
 mlrcu
 simple rcu
 hazard pointer
@@ -26,3 +25,19 @@ receiver and sender
 
 workqueue
 softirq
+
+---
+
+basic container - hash table
+    - hash function crc32c
+    - table[NR_xx]->linked_list
+        - recycle: simple rcu + workqueue
+    => related: linked list, workqueue, simple rcu (async)
+
+Advance - mlrcu, scoped_lock
+    - use hash table
+
+debug framework
+    - print, macro
+    - thread framework
+        - centralized barrier
