@@ -1,23 +1,30 @@
-BUILD_DIR = $(shell pwd)
+PWD := $(CURDIR)
+
+INC=$(PWD)/include
+INC_PARAMS=$(INC:%=-I%)
+
 CC ?= gcc
-CFLAG:=-g 
-CFLAG+=-Wall
-CFLAG+=-O1
+CFLAGS:=-g 
+CFLAGS+=-Wall
+CFLAGS+=-O1
 
-SRC:=mlrcu.c
 
-OBJ=$(SRC:.c=.o)
+SRC:=src/mlrcu/mlrcu.c
 
-BIN:=test
+OBJ:=$(SRC:.c=.o)
+
+STATIC_BIN=libmthpc.so
 
 %.o: %.c
-	$(CC) -c $< $(CFLAG)
+	$(CC) $(CFLAGS) $(INC_PARAMS) -c $< -o $@
 
-all: $(OBJ)
-	$(CC) -o $(BIN) $(OBJ) $(CFLAG)
+static: $(OBJ)
+	ar crsv $(STATIC_BIN) $(OBJ)
+	ranlib 
 
 clean:
-	rm -f $(BIN)
+	@rm -f src/*.o
+	@rm -f $(STATIC_BIN)
 
 indent:
-	clang-format -i *.[ch]
+	clang-format -i src/*.[ch]

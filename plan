@@ -3,6 +3,20 @@ RAII style
 scoped_lock(rcu, mutex, ...) framework
 debug framework
 
+thread framework
+struct thread_info {
+    void *init();
+    void *work();
+}
+
+work(){
+    init();
+    barrier();
+    self_work();
+}
+
+
+
 mlrcu
 simple rcu
 hazard pointer
