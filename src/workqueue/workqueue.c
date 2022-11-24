@@ -34,7 +34,7 @@ struct mthpc_workpool {
     pthread_mutex_t unique_lock;
     struct mthpc_list_head unique_head;
 } __mthpc_aligned__;
-struct mthpc_workpool mthpc_workpool;
+static struct mthpc_workpool mthpc_workpool;
 
 static mthpc_always_inline int mthpc_wq_get_cpu(struct mthpc_workqueue *wq)
 {
@@ -120,14 +120,17 @@ static void *mthpc_worker_run(void *arg)
         pthread_mutex_lock(&wq->lock);
         if (mthpc_list_empty(&wq->head)) {
             progress += 4;
+            pthread_mutex_unlock(&wq->lock);
         } else {
             wq->count--;
             work = container_of(wq->head.next, struct mthpc_work, node);
             mthpc_list_del(&work->node);
+            pthread_mutex_unlock(&wq->lock);
+            
+            /* We shouldn't hold the lock when running work. */
             work->func(work);
             progress++;
         }
-        pthread_mutex_unlock(&wq->lock);
     }
 
     return NULL;
