@@ -1,5 +1,8 @@
 #define _GNU_SOURCE
 #include <pthread.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <errno.h>
 
 #include <mthpc/workqueue.h>
 #include <mthpc/debug.h>
@@ -58,7 +61,6 @@ static mthpc_always_inline void mthpc_wq_run_on_cpu(struct mthpc_workqueue *wq)
 
     if (pthread_setaffinity_np(tid, sizeof(cpuset), &cpuset))
         return;
-    __atomic_or_fetch(&wq->__actived_cpu, masked_cpuid, __ATOMIC_RELAXED);
 }
 
 static mthpc_always_inline bool mthpc_wq_active(struct mthpc_workqueue *wq)
@@ -99,7 +101,7 @@ static struct mthpc_workqueue *mthpc_alloc_workqueue(void)
     return wq;
 }
 
-static int mthpc_worker_run(void *arg)
+static void *mthpc_worker_run(void *arg)
 {
     struct mthpc_workqueue *wq = arg;
     struct mthpc_work *work;
@@ -119,8 +121,8 @@ static int mthpc_worker_run(void *arg)
         if (mthpc_list_empty(&wq->head)) {
             progress += 4;
         } else {
-            wp->count--;
-            work = wq->head.next;
+            wq->count--;
+            work = container_of(wq->head.next, struct mthpc_work, node);
             mthpc_list_del(&work->node);
             work->func(work);
             progress++;
@@ -128,7 +130,7 @@ static int mthpc_worker_run(void *arg)
         pthread_mutex_unlock(&wq->lock);
     }
 
-    return 0;
+    return NULL;
 }
 
 static mthpc_always_inline void mthpc_works_handler(struct mthpc_workqueue *wq)
@@ -148,10 +150,10 @@ static struct mthpc_workqueue *mthpc_get_workqueue(int cpu)
 
     /* fast path - find the existed first. */
     pthread_mutex_lock(&mthpc_workpool.global_lock);
-    mthpc_list_for_each (curr, &wq->globacl_head) {
+    mthpc_list_for_each (curr, &mthpc_workpool.global_head) {
         struct mthpc_workqueue *tmp =
             container_of(curr, struct mthpc_workqueue, node);
-        if (cpu == -1 || cpu == mthpc_wq_get_cpu()) {
+        if (cpu == -1 || cpu == mthpc_wq_get_cpu(tmp)) {
             wq = tmp;
             break;
         }
@@ -170,10 +172,10 @@ static struct mthpc_workqueue *mthpc_get_workqueue(int cpu)
     /* Slow path, step 2 - add to the pool */
     pthread_mutex_lock(&mthpc_workpool.global_lock);
     /* Does others already created? check again */
-    mthpc_list_for_each (curr, &wq->globacl_head) {
+    mthpc_list_for_each (curr, &mthpc_workpool.global_head) {
         struct mthpc_workqueue *tmp =
             container_of(curr, struct mthpc_workqueue, node);
-        if (cpu == mthpc_wq_get_cpu()) {
+        if (cpu == mthpc_wq_get_cpu(tmp)) {
             wq = tmp;
             goto unlock;
         }
@@ -202,6 +204,7 @@ int mthpc_schedule_work_on(int cpu, struct mthpc_work *work)
     wq->count++;
     pthread_mutex_unlock(&wq->lock);
 
+    work->wq = wq;
     mthpc_works_handler(wq);
 
     return 0;
@@ -212,9 +215,11 @@ int mthpc_queue_work(struct mthpc_work *work)
     return mthpc_schedule_work_on(-1, work);
 }
 
-mthpc_noinline void mthpc_dump_work(struct mthpc_work *work)
+mthpc_always_inline void mthpc_dump_work(struct mthpc_work *work)
 {
-    printdg();
+    // TODO
+    mthpc_printdg(" dump work\n");
+    mthpc_dump_stack();
 }
 
 /* init/exit function */
@@ -228,11 +233,11 @@ static void mthpc_workqueues_join_handler(void *arg)
 void mthpc_init mthpc_workqueue_init(void)
 {
     // exit = false;
-    pthread_create();
+    //pthread_create();
 }
 
 void mthpc_exit mthpc_workqueue_exit(void)
 {
     // exit = true;
-    pthread_join();
+    //pthread_join();
 }

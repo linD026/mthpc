@@ -1,4 +1,4 @@
-#ifndef __MTHPC_LIST_H___
+#ifndef __MTHPC_LIST_H__
 #define __MTHPC_LIST_H__
 
 #include <stddef.h>

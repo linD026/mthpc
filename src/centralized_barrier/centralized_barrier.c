@@ -2,7 +2,7 @@
 
 static __thread int mthpc_local_sense = 0;
 
-mtphc_always_inline void mthpc_centralized_barrier(struct barrier *b, size_t n)
+void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
 {
     mthpc_local_sense = !mthpc_local_sense;
 
