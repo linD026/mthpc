@@ -2,6 +2,7 @@
 #define __MTHPC_LIST_H__
 
 #include <stddef.h>
+#include <stdbool.h>
 
 struct mthpc_list_head {
     struct mthpc_list_head *next;
@@ -16,7 +17,7 @@ static inline void mthpc_list_init(struct mthpc_list_head *node)
 
 static inline bool mthpc_list_empty(struct mthpc_list_head *head)
 {
-    return head->next == head->prev;
+    return head->next == head;
 }
 
 static inline void __mthpc_list_add(struct mthpc_list_head *new,

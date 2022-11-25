@@ -14,18 +14,18 @@
                 __func__, ##__VA_ARGS__);                                 \
     } while (0)
 
-#define MTHPC_BUG_ON(cond, fmt, ...)                                 \
-    do {                                                             \
-        if (mthpc_unlikely(cond)) {                                  \
-            mthpc_printdg(fmt "\n", __VA_ARGS__) exit(EXIT_FAILURE); \
-            exit(EXIT_FAILURE);                                      \
-        }                                                            \
+#define MTHPC_BUG_ON(cond, fmt, ...)                \
+    do {                                            \
+        if (mthpc_unlikely(cond)) {                 \
+            mthpc_printdg(fmt "\n", ##__VA_ARGS__); \
+            exit(EXIT_FAILURE);                     \
+        }                                           \
     } while (0)
 
-#define MTHPC_WARN_ON(cond, fmt, ...)            \
-    do {                                         \
-        if (mthpc_unlikely(cond))                \
-            mthpc_printdg(fmt "\n", __VA_ARGS__) \
+#define MTHPC_WARN_ON(cond, fmt, ...)               \
+    do {                                            \
+        if (mthpc_unlikely(cond))                   \
+            mthpc_printdg(fmt "\n", ##__VA_ARGS__); \
     } while (0)
 
 #define MTHPC_STACK_BUF_SIZE 32
