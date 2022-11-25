@@ -9,3 +9,4 @@ make -C $DIR
 gcc -o test test.c $DIR/libmthpc.a $CFLAGS
 ./test
 rm -f test
+make -C $DIR clean

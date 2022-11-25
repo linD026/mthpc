@@ -14,7 +14,7 @@ static void dump_work(struct mthpc_work *work)
         return;
     }
     mthpc_pr_info("cnt=%d\n", cnt++);
-    mthpc_queue_work(&test_work);
+    mthpc_schedule_work_on(cnt, work);
 }
 
 int main(void)
