@@ -31,6 +31,7 @@ struct mthpc_workpool {
 
     pthread_mutex_t global_lock;
     struct mthpc_list_head global_head;
+    /* Use atomic ops to access gpcount even it's protected by lock. */
     unsigned int gpcount;
 
     //TODO: provide register API
@@ -236,8 +237,11 @@ int mthpc_queue_work(struct mthpc_work *work)
 
 void mthpc_dump_work(struct mthpc_work *work)
 {
-    // TODO
-    mthpc_pr_info(" dump work\n");
+    struct mthpc_workqueue *wq = work->wq;
+
+    mthpc_print("dump workqueue(%p) work(%s)\n", wq, work->name);
+    mthpc_print("CPU: %u TID: %x\n", mthpc_wq_get_cpu(wq), (unsigned int) wq->tid);
+    mthpc_print("func: %p private: %p\n", work->func, work->private);
     mthpc_dump_stack();
 }
 

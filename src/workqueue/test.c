@@ -1,13 +1,21 @@
 #include <mthpc/workqueue.h>
 #include <mthpc/debug.h>
-#include <stdlib.h>
+#include <unistd.h>
+
+static void dump_work(struct mthpc_work *work);
+static MTHPC_DECLARE_WORK(test_work, dump_work, NULL);
+
+static int cnt = 0;
 
 static void dump_work(struct mthpc_work *work)
 {
-    mthpc_dump_work(work);
+    if (cnt == 10) {
+        mthpc_dump_work(work);
+        return;
+    }
+    mthpc_pr_info("cnt=%d\n", cnt++);
+    mthpc_queue_work(&test_work);
 }
-
-static MTHPC_DECLARE_WORK(test_work, dump_work, NULL);
 
 int main(void)
 {
