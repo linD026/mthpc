@@ -26,7 +26,13 @@
 
 #define mthpc_noinline __attribute__((__noinline__))
 
-#define mthpc_init __attribute__((constructor))
-#define mthpc_exit __attribute__((destructor))
+enum mthpc_prio {
+    mthpc_indep = 200,
+    mthpc_dep_on_indep,
+    mthpc_dep_on_dep,
+};
+
+#define mthpc_init(priority) __attribute__((constructor(priority)))
+#define mthpc_exit(priority) __attribute__((destructor(priority)))
 
 #endif /* __MTHPC_COMMON_H__ */

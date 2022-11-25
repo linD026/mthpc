@@ -306,7 +306,7 @@ static void *mthpc_workqueues_join(void *arg)
 }
 
 // create one thread handle join
-void mthpc_init mthpc_workqueue_init(void)
+void mthpc_init(mthpc_indep) mthpc_workqueue_init(void)
 {
     pthread_mutex_init(&mthpc_workpool.global_lock, NULL);
     pthread_mutex_init(&mthpc_workpool.unique_lock, NULL);
@@ -318,7 +318,7 @@ void mthpc_init mthpc_workqueue_init(void)
     mthpc_pr_info("workqueue init\n");
 }
 
-void mthpc_exit mthpc_workqueue_exit(void)
+void mthpc_exit(mthpc_indep) mthpc_workqueue_exit(void)
 {
     struct mthpc_workqueue *wq;
     struct mthpc_list_head *curr;
