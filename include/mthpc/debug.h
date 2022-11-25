@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <execinfo.h>
 
-#include <util.h>
+#include <mthpc/util.h>
 
 #define mthpc_debug_stream stdout
 #define mthpc_err_stream stderr

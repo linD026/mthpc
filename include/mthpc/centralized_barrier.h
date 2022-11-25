@@ -3,7 +3,7 @@
 
 #include <pthread.h>
 
-#include <util.h>
+#include <mthpc/util.h>
 
 struct mthpc_barrier {
     int flag;

@@ -5,9 +5,9 @@
 #include <errno.h>
 
 #include <mthpc/workqueue.h>
+#include <mthpc/util.h>
 #include <mthpc/debug.h>
 #include <list.h>
-#include <util.h>
 
 #define MTHPC_WQ_NR_CPU (4U)
 #define MTHPC_WQ_CPU_MASK (MTHPC_WQ_NR_CPU - 1)
@@ -24,19 +24,15 @@ struct mthpc_workqueue {
     struct mthpc_list_head head;
     /* workpool linked list */
     struct mthpc_list_head node;
+    struct mthpc_workpool *wp;
 };
 
 struct mthpc_workpool {
-    pthread_t tid;
-
-    pthread_mutex_t global_lock;
-    struct mthpc_list_head global_head;
-    /* Use atomic ops to access gpcount even it's protected by lock. */
-    unsigned int gpcount;
-
-    //TODO: provide register API
-    pthread_mutex_t unique_lock;
-    struct mthpc_list_head unique_head;
+    const char *name;
+    pthread_mutex_t lock;
+    struct mthpc_list_head head;
+    /* Use atomic ops to access count even it's protected by lock. */
+    unsigned int count;
 } __mthpc_aligned__;
 static struct mthpc_workpool mthpc_workpool;
 
@@ -157,16 +153,16 @@ static void inline mthpc_workqueue_add_locked(struct mthpc_workqueue *wq,
 }
 
 /* get global workqueue */
-static struct mthpc_workqueue *mthpc_get_workqueue(int cpu,
-                                                   struct mthpc_work *work)
+static struct mthpc_workqueue *
+mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
 {
     struct mthpc_workqueue *wq = NULL;
     struct mthpc_workqueue *prealloc = NULL;
     struct mthpc_list_head *curr;
 
     /* fast path - find the existed first. */
-    pthread_mutex_lock(&mthpc_workpool.global_lock);
-    mthpc_list_for_each (curr, &mthpc_workpool.global_head) {
+    pthread_mutex_lock(&wp->lock);
+    mthpc_list_for_each (curr, &wp->head) {
         struct mthpc_workqueue *tmp =
             container_of(curr, struct mthpc_workqueue, node);
         if (cpu == -1 || (cpu & MTHPC_WQ_CPU_MASK) == mthpc_wq_get_cpu(tmp)) {
@@ -177,7 +173,7 @@ static struct mthpc_workqueue *mthpc_get_workqueue(int cpu,
             break;
         }
     }
-    pthread_mutex_unlock(&mthpc_workpool.global_lock);
+    pthread_mutex_unlock(&wp->lock);
     if (wq)
         goto out;
 
@@ -188,13 +184,15 @@ static struct mthpc_workqueue *mthpc_get_workqueue(int cpu,
     if (cpu == -1)
         cpu = (sched_getcpu() + 1) & MTHPC_WQ_CPU_MASK;
     mthpc_wq_set_cpu(prealloc, cpu);
+    prealloc->wp = wp;
+
     /* We can safely add the work before we add wq to the pool. */
     mthpc_workqueue_add_locked(prealloc, work);
 
     /* Slow path, step 2 - add to the pool */
-    pthread_mutex_lock(&mthpc_workpool.global_lock);
+    pthread_mutex_lock(&wp->lock);
     /* Does others already created? check again */
-    mthpc_list_for_each (curr, &mthpc_workpool.global_head) {
+    mthpc_list_for_each (curr, &wp->head) {
         struct mthpc_workqueue *tmp =
             container_of(curr, struct mthpc_workqueue, node);
         if (cpu == mthpc_wq_get_cpu(tmp)) {
@@ -203,12 +201,12 @@ static struct mthpc_workqueue *mthpc_get_workqueue(int cpu,
         }
     }
     /* No one created it, we can safetly add to the pool.*/
-    mthpc_list_add_tail(&prealloc->node, &mthpc_workpool.global_head);
-    __atomic_fetch_add(&mthpc_workpool.gpcount, 1, __ATOMIC_RELAXED);
+    mthpc_list_add_tail(&prealloc->node, &wp->head);
+    __atomic_fetch_add(&wp->count, 1, __ATOMIC_RELAXED);
     wq = prealloc;
     prealloc = NULL;
 unlock:
-    pthread_mutex_unlock(&mthpc_workpool.global_lock);
+    pthread_mutex_unlock(&wp->lock);
     mthpc_works_handler(wq);
 
 out:
@@ -222,7 +220,7 @@ int mthpc_schedule_work_on(int cpu, struct mthpc_work *work)
     struct mthpc_workqueue *wq;
 
     mthpc_list_init(&work->node);
-    wq = mthpc_get_workqueue(cpu, work);
+    wq = mthpc_get_workqueue(&mthpc_workpool, cpu, work);
     if (!wq)
         return -ENOMEM;
 
@@ -237,11 +235,12 @@ int mthpc_queue_work(struct mthpc_work *work)
 void mthpc_dump_work(struct mthpc_work *work)
 {
     struct mthpc_workqueue *wq = work->wq;
+    struct mthpc_workpool *wp = wq->wp;
 
-    mthpc_print("dump workqueue(%p) work(%s)\n", wq, work->name);
-    mthpc_print("CPU: %u TID: %x\n", mthpc_wq_get_cpu(wq),
-                (unsigned int)wq->tid);
-    mthpc_print("func: %p private: %p\n", work->func, work->private);
+    mthpc_print("Workqueue dump: pool: %s, queue: %p, work: %s\n", wp->name, wq,
+                work->name);
+    mthpc_print("CPU: %u TID: %x func: %p private: %p\n", mthpc_wq_get_cpu(wq),
+                (unsigned int)wq->tid, work->func, work->private);
     mthpc_dump_stack();
 }
 
@@ -254,7 +253,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
     unsigned int progress = 0;
 
     while (1) {
-        if (!__atomic_load_n(&wp->gpcount, __ATOMIC_RELAXED))
+        if (!__atomic_load_n(&wp->count, __ATOMIC_RELAXED))
             break;
         if (progress >= 32) {
             progress = 0;
@@ -264,8 +263,8 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
 
         mthpc_list_init(&free_list);
 
-        pthread_mutex_lock(&wp->global_lock);
-        mthpc_list_for_each_safe (curr, n, &wp->global_head) {
+        pthread_mutex_lock(&wp->lock);
+        mthpc_list_for_each_safe (curr, n, &wp->head) {
             struct mthpc_workqueue *wq =
                 container_of(curr, struct mthpc_workqueue, node);
 
@@ -278,7 +277,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
             }
             pthread_mutex_unlock(&wq->lock);
         }
-        pthread_mutex_unlock(&wp->global_lock);
+        pthread_mutex_unlock(&wp->lock);
 
         if (!mthpc_list_empty(&free_list)) {
             mthpc_list_for_each_safe (curr, n, &free_list) {
@@ -294,7 +293,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
                               "freeing wq but still holding work(s)");
                 pthread_mutex_destroy(&wq->lock);
                 free(wq);
-                __atomic_fetch_add(&wp->gpcount, -1, __ATOMIC_RELAXED);
+                __atomic_fetch_add(&wp->count, -1, __ATOMIC_RELAXED);
             }
         } else
             progress += 7;
@@ -302,21 +301,30 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
     }
 }
 
+static void mthpc_workpool_init(struct mthpc_workpool *wp, const char *name)
+{
+    wp->name = name;
+    pthread_mutex_init(&wp->lock, NULL);
+    mthpc_list_init(&wp->head);
+}
+
+static void mthpc_workpool_exit(struct mthpc_workpool *wp)
+{
+    mthpc_workqueues_join(wp);
+    pthread_mutex_destroy(&wp->lock);
+}
+
 // create one thread handle join
 void mthpc_init(mthpc_indep) mthpc_workqueue_init(void)
 {
-    pthread_mutex_init(&mthpc_workpool.global_lock, NULL);
-    pthread_mutex_init(&mthpc_workpool.unique_lock, NULL);
-    mthpc_list_init(&mthpc_workpool.global_head);
-    mthpc_list_init(&mthpc_workpool.unique_head);
-
+    mthpc_workpool_init(&mthpc_workpool, "global");
+    /* Add new pool here. */
     mthpc_pr_info("workqueue init\n");
 }
 
 void mthpc_exit(mthpc_indep) mthpc_workqueue_exit(void)
 {
-    mthpc_workqueues_join(&mthpc_workpool);
-    pthread_mutex_destroy(&mthpc_workpool.global_lock);
-    pthread_mutex_destroy(&mthpc_workpool.unique_lock);
+    mthpc_workpool_exit(&mthpc_workpool);
+    /* Add new pool here. */
     mthpc_pr_info("workqueue exit\n");
 }
