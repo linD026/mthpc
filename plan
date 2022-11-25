@@ -23,7 +23,7 @@ concurrent linked list
 ** hash table
 receiver and sender
 
-workqueue
+workqueue ----------------- v
 softirq
 
 ---

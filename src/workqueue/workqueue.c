@@ -131,7 +131,8 @@ static void *mthpc_worker_run(void *arg)
         pthread_mutex_lock(&wq->lock);
         if (mthpc_list_empty(&wq->head)) {
             progress += 4;
-            MTHPC_WARN_ON(wq->count > 0, "list is empty but count=%u\n", wq->count);
+            MTHPC_WARN_ON(wq->count > 0, "list is empty but count=%u\n",
+                          wq->count);
             pthread_mutex_unlock(&wq->lock);
         } else {
             work = container_of(wq->head.next, struct mthpc_work, node);
@@ -236,7 +237,7 @@ int mthpc_queue_work(struct mthpc_work *work)
 void mthpc_dump_work(struct mthpc_work *work)
 {
     // TODO
-    mthpc_printdg(" dump work\n");
+    mthpc_pr_info(" dump work\n");
     mthpc_dump_stack();
 }
 
@@ -314,7 +315,7 @@ void mthpc_init mthpc_workqueue_init(void)
 
     pthread_create(&mthpc_workpool.tid, NULL, mthpc_workqueues_join,
                    &mthpc_workpool);
-    mthpc_printdg("workqueue init\n");
+    mthpc_pr_info("workqueue init\n");
 }
 
 void mthpc_exit mthpc_workqueue_exit(void)
@@ -332,5 +333,5 @@ void mthpc_exit mthpc_workqueue_exit(void)
     __atomic_store_n(&mthpc_workpool.exited, 1, __ATOMIC_RELEASE);
 
     pthread_join(mthpc_workpool.tid, NULL);
-    mthpc_printdg("workqueue exit\n");
+    mthpc_pr_info("workqueue exit\n");
 }
