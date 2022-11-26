@@ -7,7 +7,8 @@
 #include <mthpc/workqueue.h>
 #include <mthpc/util.h>
 #include <mthpc/debug.h>
-#include <internal/list.h>
+#include <mthpc/list.h>
+#include <mthpc/rculist.h>
 #include <internal/rcu.h>
 
 #define MTHPC_WQ_NR_CPU (4U)
@@ -207,7 +208,7 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
         }
     }
     /* No one created it, we can safetly add to the pool.*/
-    mthpc_list_add_tail(&prealloc->node, &wp->head);
+    mthpc_list_add_tail_rcu(&prealloc->node, &wp->head);
     __atomic_fetch_add(&wp->count, 1, __ATOMIC_RELAXED);
     wq = prealloc;
     prealloc = NULL;
@@ -277,7 +278,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
             pthread_mutex_lock(&wq->lock);
             /* We should waiting for the works in wq. */
             if (!wq->count) {
-                mthpc_list_del(&wq->node);
+                mthpc_list_del_rcu(&wq->node);
                 mthpc_list_add(&wq->node, &free_list);
                 mthpc_wq_clear_active(wq);
             }
