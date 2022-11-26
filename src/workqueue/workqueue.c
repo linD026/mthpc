@@ -36,7 +36,7 @@ struct mthpc_workpool {
     struct mthpc_list_head head;
     /* Use atomic ops to access count even it's protected by lock. */
     unsigned int count;
-    
+
     pthread_mutex_t lock;
     struct mthpc_rcu_node rcu_node;
     struct mthpc_rcu_data rcu_data;

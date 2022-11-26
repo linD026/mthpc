@@ -34,6 +34,11 @@
 #define READ_ONCE(x) __atomic_load_n(&(x), __ATOMIC_RELAXED)
 #endif
 
+#ifndef macro_var_args_count
+#define macro_var_args_count(...) \
+    (sizeof((void *[]){ 0, __VA_ARGS__ }) / sizeof(void *) - 1)
+#endif
+
 enum mthpc_prio {
     mthpc_indep = 200,
     mthpc_dep_on_indep,

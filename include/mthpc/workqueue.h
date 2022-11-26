@@ -2,7 +2,7 @@
 #define __MTHPC_WORKQUEUE_H__
 
 #include <mthpc/util.h>
-#include <mthpc//list.h>
+#include <mthpc/list.h>
 
 struct mthpc_workqueue;
 
