@@ -16,7 +16,8 @@ struct mthpc_barrier {
         .flag = 0, .count = 0, .lock = PTHREAD_MUTEX_INITIALIZER \
     }
 
-#define MTHPC_DEFINE_BARRIER(name) struct mthpc_barrier name = BARRIER_INIT
+#define MTHPC_DEFINE_BARRIER(name) \
+    struct mthpc_barrier name = MTHPC_BARRIER_INIT
 
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n);
 

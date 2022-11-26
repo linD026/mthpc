@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <execinfo.h>
+#include <pthread.h>
 
 #include <mthpc/util.h>
 
@@ -20,12 +21,13 @@
                     ##__VA_ARGS__);                                            \
     } while (0)
 
-#define mthpc_pr_err(fmt, ...)                                \
-    do {                                                      \
-        fprintf(mthpc_err_stream,                             \
-                "\e[32m%s:%d:%s:\e[0m "                       \
-                "\e[31m" fmt "\e[0m",                         \
-                __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+#define mthpc_pr_err(fmt, ...)                                              \
+    do {                                                                    \
+        fprintf(mthpc_err_stream,                                           \
+                "\e[32m[TASK %u] %s:%d:%s:\e[0m "                           \
+                "\e[31m" fmt "\e[0m",                                       \
+                (unsigned int)pthread_self(), __FILE__, __LINE__, __func__, \
+                ##__VA_ARGS__);                                             \
     } while (0)
 
 #define MTHPC_BUG_ON(cond, fmt, ...)               \

@@ -42,8 +42,12 @@ struct mthpc_rcu_data {
 #define MTHPC_RCU_TYPE_MASK (MTHPC_RCU_USER | MTHPC_RCU_WORKQUEUE)
 
 void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type);
-inline void mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node);
-inline void mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node);
+void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
+                   struct mthpc_rcu_node **rev);
+mthpc_always_inline void
+mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node);
+mthpc_always_inline void
+mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node);
 void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data);
 
 void mthpc_synchronize_rcu_all(void);
