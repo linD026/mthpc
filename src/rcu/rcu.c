@@ -173,7 +173,7 @@ static void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
 
 /* Provide the API to let the other feature can create their own rcu data. */
 
-void mthpc_init(mthpc_indep) mthpc_rcu_init(void)
+static void mthpc_init(mthpc_indep) mthpc_rcu_init(void)
 {
     mthpc_rcu_meta.head = NULL;
     pthread_mutex_init(&mthpc_rcu_meta.lock, NULL);
@@ -181,7 +181,7 @@ void mthpc_init(mthpc_indep) mthpc_rcu_init(void)
     mthpc_pr_info("rcu init\n");
 }
 
-void mthpc_exit(mthpc_indep) mthpc_rcu_exit(void)
+static void mthpc_exit(mthpc_indep) mthpc_rcu_exit(void)
 {
     mthpc_synchronize_rcu_all();
     mthpc_rcu_data_exit(&mthpc_rcu_data);

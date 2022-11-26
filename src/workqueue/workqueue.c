@@ -324,14 +324,14 @@ static void mthpc_workpool_exit(struct mthpc_workpool *wp)
 }
 
 // create one thread handle join
-void mthpc_init(mthpc_dep_on_indep) mthpc_workqueue_init(void)
+static void mthpc_init(mthpc_dep_on_indep) mthpc_workqueue_init(void)
 {
     mthpc_workpool_init(&mthpc_workpool, "global");
     /* Add new pool here. */
     mthpc_pr_info("workqueue init\n");
 }
 
-void mthpc_exit(mthpc_dep_on_indep) mthpc_workqueue_exit(void)
+static void mthpc_exit(mthpc_dep_on_indep) mthpc_workqueue_exit(void)
 {
     mthpc_workpool_exit(&mthpc_workpool);
     /* Add new pool here. */

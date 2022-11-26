@@ -1,4 +1,5 @@
 #include <mthpc/centralized_barrier.h>
+#include <mthpc/debug.h>
 
 static __thread int mthpc_local_sense = 0;
 
@@ -17,4 +18,14 @@ void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
         while (__atomic_load_n(&b->flag, __ATOMIC_ACQUIRE) != mthpc_local_sense)
             ;
     }
+}
+
+static mthpc_init(mthpc_indep) void mthpc_centralized_barrier_init(void)
+{
+    mthpc_pr_info("centralized barrier init\n");
+}
+
+static mthpc_exit(mthpc_indep) void mthpc_centralized_barrier_exit(void)
+{
+    mthpc_pr_info("centralized barrier exit\n");
 }
