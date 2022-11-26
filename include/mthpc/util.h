@@ -26,6 +26,14 @@
 
 #define mthpc_noinline __attribute__((__noinline__))
 
+#ifndef WRITE_ONCE
+#define WRITE_ONCE(x, val) __atomic_store_n(&(x), val, __ATOMIC_RELAXED)
+#endif
+
+#ifndef READ_ONCE
+#define READ_ONCE(x) __atomic_load_n(&(x), __ATOMIC_RELAXED)
+#endif
+
 enum mthpc_prio {
     mthpc_indep = 200,
     mthpc_dep_on_indep,
