@@ -7,7 +7,7 @@
 #include <mthpc/workqueue.h>
 #include <mthpc/util.h>
 #include <mthpc/debug.h>
-#include <list.h>
+#include <internal/list.h>
 
 #define MTHPC_WQ_NR_CPU (4U)
 #define MTHPC_WQ_CPU_MASK (MTHPC_WQ_NR_CPU - 1)
