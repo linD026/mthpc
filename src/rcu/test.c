@@ -13,7 +13,7 @@
 static pthread_mutex_t lock;
 static int *data;
 
-void *read_func(struct mthpc_thread *unused)
+void read_func(struct mthpc_thread *unused)
 {
     int tmp;
 
@@ -23,10 +23,10 @@ void *read_func(struct mthpc_thread *unused)
 
     mthpc_pr_info("read: number=%d\n", tmp);
 
-    return NULL;
+    return;
 }
 
-void *write_func(struct mthpc_thread *unused)
+void write_func(struct mthpc_thread *unused)
 {
     for (int i = 1; i < NR_WRITE + 1; i++) {
         int *tmp = malloc(sizeof(int));
@@ -39,7 +39,7 @@ void *write_func(struct mthpc_thread *unused)
         free(tmp);
     }
 
-    return NULL;
+    return;
 }
 
 static MTHPC_DECLARE_THREAD(reader, NR_READER, NULL, read_func, NULL);

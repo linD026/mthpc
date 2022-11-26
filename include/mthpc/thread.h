@@ -21,8 +21,8 @@ struct mthpc_thread {
 #define MTHPC_DECLARE_THREAD(_name, _nr, _init, _func, _arg) \
     struct __auto_generated__mthpc_thread_##_name {          \
         unsigned int nr;                                     \
-        void *(*init)(struct mthpc_thread *);                \
-        void *(*func)(struct mthpc_thread *);                \
+        void (*init)(struct mthpc_thread *);                 \
+        void (*func)(struct mthpc_thread *);                 \
         void *arg;                                           \
         struct mthpc_barrier *barrier;                       \
         pthread_t th[_nr];                                   \
