@@ -8,6 +8,7 @@
 #include <mthpc/util.h>
 #include <mthpc/debug.h>
 #include <internal/list.h>
+#include <internal/rcu.h>
 
 #define MTHPC_WQ_NR_CPU (4U)
 #define MTHPC_WQ_CPU_MASK (MTHPC_WQ_NR_CPU - 1)
@@ -25,14 +26,19 @@ struct mthpc_workqueue {
     /* workpool linked list */
     struct mthpc_list_head node;
     struct mthpc_workpool *wp;
+
+    struct mthpc_rcu_node rcu_node;
 };
 
 struct mthpc_workpool {
     const char *name;
-    pthread_mutex_t lock;
     struct mthpc_list_head head;
     /* Use atomic ops to access count even it's protected by lock. */
     unsigned int count;
+    
+    pthread_mutex_t lock;
+    struct mthpc_rcu_node rcu_node;
+    struct mthpc_rcu_data rcu_data;
 } __mthpc_aligned__;
 static struct mthpc_workpool mthpc_workpool;
 
@@ -161,7 +167,7 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
     struct mthpc_list_head *curr;
 
     /* fast path - find the existed first. */
-    pthread_mutex_lock(&wp->lock);
+    mthpc_rcu_read_lock_internal(&wp->rcu_node);
     mthpc_list_for_each (curr, &wp->head) {
         struct mthpc_workqueue *tmp =
             container_of(curr, struct mthpc_workqueue, node);
@@ -173,7 +179,7 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
             break;
         }
     }
-    pthread_mutex_unlock(&wp->lock);
+    mthpc_rcu_read_unlock_internal(&wp->rcu_node);
     if (wq)
         goto out;
 
@@ -306,23 +312,25 @@ static void mthpc_workpool_init(struct mthpc_workpool *wp, const char *name)
     wp->name = name;
     pthread_mutex_init(&wp->lock, NULL);
     mthpc_list_init(&wp->head);
+    mthpc_rcu_data_init(&wp->rcu_data, MTHPC_RCU_WORKQUEUE);
 }
 
 static void mthpc_workpool_exit(struct mthpc_workpool *wp)
 {
+    mthpc_synchronize_rcu_internal(&wp->rcu_data);
     mthpc_workqueues_join(wp);
     pthread_mutex_destroy(&wp->lock);
 }
 
 // create one thread handle join
-void mthpc_init(mthpc_indep) mthpc_workqueue_init(void)
+void mthpc_init(mthpc_dep_on_indep) mthpc_workqueue_init(void)
 {
     mthpc_workpool_init(&mthpc_workpool, "global");
     /* Add new pool here. */
     mthpc_pr_info("workqueue init\n");
 }
 
-void mthpc_exit(mthpc_indep) mthpc_workqueue_exit(void)
+void mthpc_exit(mthpc_dep_on_indep) mthpc_workqueue_exit(void)
 {
     mthpc_workpool_exit(&mthpc_workpool);
     /* Add new pool here. */

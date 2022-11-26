@@ -2,7 +2,8 @@
 
 DIR="$(pwd)/../../"
 INCLUDE="$DIR/include"
-CFLAGS="-g -rdynamic -pthread -I$INCLUDE"
+#CFLAGS="-g -rdynamic -pthread -I$INCLUDE"
+CFLAGS="-g -rdynamic -fsanitize=thread -pthread -I$INCLUDE"
 
 make -C $DIR clean
 make -C $DIR

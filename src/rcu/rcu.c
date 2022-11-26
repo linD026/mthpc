@@ -24,8 +24,7 @@ struct mthpc_rcu_meta {
 };
 static struct mthpc_rcu_meta mthpc_rcu_meta;
 
-mthpc_always_inline void
-mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
+void mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
 
@@ -35,8 +34,7 @@ mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
         "rcu read side lock");
 }
 
-mthpc_always_inline void
-mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
+void mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
 
