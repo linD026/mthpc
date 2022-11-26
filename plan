@@ -15,15 +15,14 @@ work(){
     self_work();
 }
 
+simple rcu ---------------- v
+workqueue ----------------- v
 
 mlrcu
-simple rcu
 hazard pointer
 concurrent linked list
 ** hash table
 receiver and sender
-
-workqueue ----------------- v
 softirq
 
 ---

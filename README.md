@@ -5,13 +5,13 @@
 ### Basic
 
 - centralized barrier
-- workqueue
+- rcu
 - thread
 - scoped lock
 
 ### intermediate
 
-- rcu
+- workqueue
 
 ### Advanced
 
