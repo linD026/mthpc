@@ -27,7 +27,7 @@ struct mthpc_rcu_node {
     unsigned int id;
     unsigned int seqcount;
     struct mthpc_rcu_node *next;
-};
+} __mthpc_aligned__;
 
 struct mthpc_rcu_data {
     pthread_mutex_t lock;
