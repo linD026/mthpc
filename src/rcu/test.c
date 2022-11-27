@@ -15,13 +15,14 @@ static int *data;
 
 void read_func(struct mthpc_thread *unused)
 {
-    int tmp;
+    int *tmp, val;
 
     mthpc_rcu_read_lock();
-    tmp = READ_ONCE(*data);
+    tmp = mthpc_rcu_deference(data);
+    val = *tmp;
     mthpc_rcu_read_unlock();
 
-    mthpc_pr_info("read: number=%d\n", tmp);
+    mthpc_pr_info("read: number=%d\n", val);
 
     return;
 }

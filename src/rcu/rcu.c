@@ -28,19 +28,18 @@ void mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
 
-    /* Should be odd number */
-    MTHPC_WARN_ON(
-        !(__atomic_add_fetch(&node->seqcount, 1, __ATOMIC_RELAXED) & 0x1U),
-        "rcu read side lock");
+    //__atomic_add_fetch(&node->count, 1, __ATOMIC_RELAXED);
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    pthread_rwlock_rdlock(&node->lock);
 }
 
 void mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
 
-    MTHPC_WARN_ON(__atomic_add_fetch(&node->seqcount, 1, __ATOMIC_RELAXED) &
-                      0x1U,
-                  "rcu read side unlock");
+    pthread_rwlock_unlock(&node->lock);
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    //__atomic_add_fetch(&node->count, -1, __ATOMIC_RELAXED);
 }
 
 void mthpc_rcu_read_lock(void)
@@ -53,10 +52,12 @@ void mthpc_rcu_read_unlock(void)
     mthpc_rcu_read_unlock_internal(mthpc_rcu_node_ptr);
 }
 
+/*
 static mthpc_always_inline bool mthpc_this_gp(struct mthpc_rcu_node *node)
 {
-    return READ_ONCE(node->seqcount) & 0x1U;
+    return READ_ONCE(node->count) & 0x1U;
 }
+*/
 
 void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 {
@@ -67,8 +68,11 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
     pthread_mutex_lock(&data->lock);
 
     for (node = data->head; node; node = node->next) {
-        while (mthpc_this_gp(node))
-            mthpc_cmb();
+        //while (mthpc_this_gp(node) && READ_ONCE(node->count) > 0)
+        //    mthpc_cmb();
+
+        pthread_rwlock_wrlock(&node->lock);
+        pthread_rwlock_unlock(&node->lock);
     }
 
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
@@ -77,10 +81,10 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
      * Some readers may get in to critical section after
      * first time checking. So, check again.
      */
-    for (node = data->head; node; node = node->next) {
-        while (mthpc_this_gp(node))
-            mthpc_cmb();
-    }
+    //for (node = data->head; node; node = node->next) {
+    //    while (mthpc_this_gp(node) && READ_ONCE(node->count) > 0)
+    //        mthpc_cmb();
+    //}
 
     pthread_mutex_unlock(&data->lock);
 
@@ -119,8 +123,10 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
     }
 
     node->id = id;
-    node->seqcount = 0;
+    node->count = 0;
+    pthread_rwlock_init(&node->lock, NULL);
     node->next = NULL;
+    node->data = data;
 
     pthread_mutex_lock(&data->lock);
     while (*indirect) {
@@ -164,6 +170,7 @@ static void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
     node = data->head;
     while (node) {
         tmp = node->next;
+        pthread_rwlock_destroy(&node->lock);
         free(node);
         node = tmp;
     }

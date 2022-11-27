@@ -19,14 +19,16 @@
  *     struct my_node *head;
  * };
  *
- * The seqcount will change to protect per object rather
+ * The count will change to protect per object rather
  * than thread from user rcu_data.
  */
 
 struct mthpc_rcu_node {
     unsigned int id;
-    unsigned int seqcount;
+    unsigned int count;
+    pthread_rwlock_t lock;
     struct mthpc_rcu_node *next;
+    struct mthpc_rcu_data *data;
 } __mthpc_aligned__;
 
 struct mthpc_rcu_data {
