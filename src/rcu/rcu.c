@@ -10,7 +10,7 @@
 
 /* User (global) rcu data */
 
-static __thread struct mthpc_rcu_node *mthpc_rcu_node_ptr;
+__thread struct mthpc_rcu_node *mthpc_rcu_node_ptr;
 static struct mthpc_rcu_data mthpc_rcu_data;
 
 /*
@@ -24,41 +24,6 @@ struct mthpc_rcu_meta {
 };
 static struct mthpc_rcu_meta mthpc_rcu_meta;
 
-void mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
-{
-    MTHPC_WARN_ON(!node, "rcu node == NULL");
-
-    //__atomic_add_fetch(&node->count, 1, __ATOMIC_RELAXED);
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-    pthread_rwlock_rdlock(&node->lock);
-}
-
-void mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
-{
-    MTHPC_WARN_ON(!node, "rcu node == NULL");
-
-    pthread_rwlock_unlock(&node->lock);
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-    //__atomic_add_fetch(&node->count, -1, __ATOMIC_RELAXED);
-}
-
-void mthpc_rcu_read_lock(void)
-{
-    mthpc_rcu_read_lock_internal(mthpc_rcu_node_ptr);
-}
-
-void mthpc_rcu_read_unlock(void)
-{
-    mthpc_rcu_read_unlock_internal(mthpc_rcu_node_ptr);
-}
-
-/*
-static mthpc_always_inline bool mthpc_this_gp(struct mthpc_rcu_node *node)
-{
-    return READ_ONCE(node->count) & 0x1U;
-}
-*/
-
 void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 {
     struct mthpc_rcu_node *node;
@@ -68,23 +33,33 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
     pthread_mutex_lock(&data->lock);
 
     for (node = data->head; node; node = node->next) {
-        //while (mthpc_this_gp(node) && READ_ONCE(node->count) > 0)
-        //    mthpc_cmb();
-
         pthread_rwlock_wrlock(&node->lock);
         pthread_rwlock_unlock(&node->lock);
     }
 
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
-    /*
-     * Some readers may get in to critical section after
-     * first time checking. So, check again.
-     */
-    //for (node = data->head; node; node = node->next) {
-    //    while (mthpc_this_gp(node) && READ_ONCE(node->count) > 0)
-    //        mthpc_cmb();
-    //}
+    pthread_mutex_unlock(&data->lock);
+
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+}
+
+void mthpc_unused __mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
+{
+    struct mthpc_rcu_node *node;
+    unsigned long curr_gp;
+
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+
+    pthread_mutex_lock(&data->lock);
+
+    curr_gp = READ_ONCE(data->gp_seq);
+    for (node = data->head; node; node = node->next) {
+        while (READ_ONCE(node->count) > 0)
+            mthpc_cmb();
+    }
+
+    __atomic_fetch_add(&data->gp_seq, 1, __ATOMIC_RELEASE);
 
     pthread_mutex_unlock(&data->lock);
 
@@ -154,6 +129,7 @@ void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type)
 {
     data->head = NULL;
     data->type = type;
+    data->gp_seq = 0;
     pthread_mutex_init(&data->lock, NULL);
 
     pthread_mutex_lock(&mthpc_rcu_meta.lock);

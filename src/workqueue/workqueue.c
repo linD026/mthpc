@@ -42,23 +42,32 @@ struct mthpc_workpool {
     struct mthpc_rcu_data rcu_data;
 } __mthpc_aligned__;
 static struct mthpc_workpool mthpc_workpool;
+static struct mthpc_workpool mthpc_rcu_wp;
 
 static mthpc_always_inline int mthpc_wq_get_cpu(struct mthpc_workqueue *wq)
 {
+#ifdef __linux__
     return (int)(__atomic_load_n(&wq->__actived_cpu, __ATOMIC_RELAXED) &
                  MTHPC_WQ_CPU_MASK);
+#else
+    return 0;
+#endif
 }
 
 static mthpc_always_inline void mthpc_wq_set_cpu(struct mthpc_workqueue *wq,
                                                  int cpu)
 {
+#ifdef __linux__
     unsigned int masked_cpuid = ~MTHPC_WQ_CPU_MASK | (unsigned int)cpu;
 
     __atomic_and_fetch(&wq->__actived_cpu, masked_cpuid, __ATOMIC_RELAXED);
+#else
+#endif
 }
 
 static mthpc_always_inline void mthpc_wq_run_on_cpu(struct mthpc_workqueue *wq)
 {
+#ifdef __linux__
     unsigned int cpuid = mthpc_wq_get_cpu(wq);
     pthread_t tid = pthread_self();
     cpu_set_t cpuset;
@@ -67,6 +76,8 @@ static mthpc_always_inline void mthpc_wq_run_on_cpu(struct mthpc_workqueue *wq)
     CPU_SET(cpuid, &cpuset);
 
     pthread_setaffinity_np(tid, sizeof(cpuset), &cpuset);
+#else
+#endif
 }
 
 static mthpc_always_inline bool mthpc_wq_active(struct mthpc_workqueue *wq)
@@ -189,7 +200,11 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
     if (!prealloc)
         return NULL;
     if (cpu == -1)
+#ifdef __linux__
         cpu = (sched_getcpu() + 1) & MTHPC_WQ_CPU_MASK;
+#else
+        cpu = 0;
+#endif
     mthpc_wq_set_cpu(prealloc, cpu);
     prealloc->wp = wp;
 
@@ -218,6 +233,18 @@ unlock:
 
 out:
     return wq;
+}
+
+int mthpc_rcu_queue_work(struct mthpc_work *work)
+{
+    struct mthpc_workqueue *wq;
+
+    mthpc_list_init(&work->node);
+    wq = mthpc_get_workqueue(&mthpc_rcu_wp, -1, work);
+    if (!wq)
+        return -ENOMEM;
+
+    return 0;
 }
 
 /* user API */
@@ -327,6 +354,7 @@ static void mthpc_workpool_exit(struct mthpc_workpool *wp)
 static void mthpc_init(mthpc_dep_on_indep) mthpc_workqueue_init(void)
 {
     mthpc_workpool_init(&mthpc_workpool, "global");
+    mthpc_workpool_init(&mthpc_rcu_wp, "rcu");
     /* Add new pool here. */
     mthpc_pr_info("workqueue init\n");
 }
@@ -334,6 +362,7 @@ static void mthpc_init(mthpc_dep_on_indep) mthpc_workqueue_init(void)
 static void mthpc_exit(mthpc_dep_on_indep) mthpc_workqueue_exit(void)
 {
     mthpc_workpool_exit(&mthpc_workpool);
+    mthpc_workpool_exit(&mthpc_rcu_wp);
     /* Add new pool here. */
     mthpc_pr_info("workqueue exit\n");
 }

@@ -3,42 +3,6 @@
 
 #include <pthread.h>
 
-/*
- * the use case in mthpc library would be like this.
- *
- * struct my_node {
- *     struct mthpc_rcu_node node;
- *     ...
- *     struct my_node *next;
- *
- * };
- *
- * struct my_head {
- *     struct mthpc_rcu_data head;
- *     ...
- *     struct my_node *head;
- * };
- *
- * The count will change to protect per object rather
- * than thread from user rcu_data.
- */
-
-struct mthpc_rcu_node {
-    unsigned int id;
-    unsigned int count;
-    pthread_rwlock_t lock;
-    struct mthpc_rcu_node *next;
-    struct mthpc_rcu_data *data;
-} __mthpc_aligned__;
-
-struct mthpc_rcu_data {
-    pthread_mutex_t lock;
-    struct mthpc_rcu_node *head;
-    unsigned int type;
-
-    struct mthpc_rcu_data *next;
-};
-
 #define MTHPC_RCU_USR 0x0001U
 #define MTHPC_RCU_WORKQUEUE 0x0002U
 #define MTHPC_RCU_TYPE_MASK (MTHPC_RCU_USER | MTHPC_RCU_WORKQUEUE)

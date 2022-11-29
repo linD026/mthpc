@@ -8,7 +8,7 @@
 #include <mthpc/rcu.h>
 
 #define NR_READER 32
-#define NR_WRITE 8
+#define NR_WRITE 1
 
 static pthread_mutex_t lock;
 static int *data;
@@ -18,11 +18,11 @@ void read_func(struct mthpc_thread *unused)
     int *tmp, val;
 
     mthpc_rcu_read_lock();
-    tmp = mthpc_rcu_deference(data);
+    tmp = mthpc_rcu_dereference(data);
     val = *tmp;
-    mthpc_rcu_read_unlock();
-
+    tmp = NULL;
     mthpc_pr_info("read: number=%d\n", val);
+    mthpc_rcu_read_unlock();
 
     return;
 }
@@ -30,14 +30,15 @@ void read_func(struct mthpc_thread *unused)
 void write_func(struct mthpc_thread *unused)
 {
     for (int i = 1; i < NR_WRITE + 1; i++) {
-        int *tmp = malloc(sizeof(int));
+        int *old, *tmp = malloc(sizeof(int));
         MTHPC_BUG_ON(!tmp, "allocation failed");
         *tmp = i;
         pthread_mutex_lock(&lock);
-        tmp = mthpc_rcu_replace_pointer(data, tmp);
+        old = READ_ONCE(data);
+        mthpc_rcu_replace_pointer(data, tmp);
         pthread_mutex_unlock(&lock);
         mthpc_synchronize_rcu();
-        free(tmp);
+        free(old);
     }
 
     return;

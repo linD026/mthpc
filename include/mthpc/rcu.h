@@ -3,18 +3,102 @@
 
 #include <pthread.h>
 
+#include <mthpc/debug.h>
+
+/*
+ * the use case in mthpc library would be like this.
+ *
+ * struct my_node {
+ *     struct mthpc_rcu_node node;
+ *     ...
+ *     struct my_node *next;
+ *
+ * };
+ *
+ * struct my_head {
+ *     struct mthpc_rcu_data head;
+ *     ...
+ *     struct my_node *head;
+ * };
+ *
+ * The count will change to protect per object rather
+ * than thread from user rcu_data.
+ */
+
+struct mthpc_rcu_node {
+    unsigned int id;
+    unsigned long count;
+    pthread_rwlock_t lock;
+    struct mthpc_rcu_node *next;
+    struct mthpc_rcu_data *data;
+} __mthpc_aligned__;
+
+struct mthpc_rcu_data {
+    pthread_mutex_t lock;
+    struct mthpc_rcu_node *head;
+    unsigned int type;
+    unsigned long gp_seq;
+
+    struct mthpc_rcu_data *next;
+};
+
+extern __thread struct mthpc_rcu_node *mthpc_rcu_node_ptr;
+
 void mthpc_rcu_thread_init(void);
 
-void mthpc_rcu_read_lock(void);
-void mthpc_rcu_read_unlock(void);
+static inline void mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
+{
+    MTHPC_WARN_ON(!node, "rcu node == NULL");
+
+    pthread_rwlock_rdlock(&node->lock);
+}
+
+static inline void mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
+{
+    MTHPC_WARN_ON(!node, "rcu node == NULL");
+
+    pthread_rwlock_unlock(&node->lock);
+}
+
+static inline void mthpc_unused
+__mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
+{
+    MTHPC_WARN_ON(!node, "rcu node == NULL");
+    __atomic_fetch_add((volatile unsigned long *)&node->count, 1,
+                       __ATOMIC_RELAXED);
+}
+
+static inline void mthpc_unused
+__mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
+{
+    MTHPC_WARN_ON(!node, "rcu node == NULL");
+
+    __atomic_fetch_add((volatile unsigned long *)&node->count, -1,
+                       __ATOMIC_RELAXED);
+}
+
+static inline void mthpc_rcu_read_lock(void)
+{
+    mthpc_rcu_read_lock_internal(mthpc_rcu_node_ptr);
+}
+
+static inline void mthpc_rcu_read_unlock(void)
+{
+    mthpc_rcu_read_unlock_internal(mthpc_rcu_node_ptr);
+}
+
 void mthpc_synchronize_rcu(void);
 
 #define mthpc_rcu_replace_pointer(p, new) \
     ({ __atomic_exchange_n(&(p), (new), __ATOMIC_RELEASE); })
 
-#define mthpc_rcu_deference(p) \
-    ({ __atomic_load_n(&(p), __ATOMIC_ACQUIRE); })
+#define mthpc_rcu_dereference(p) ({ __atomic_load_n(&(p), __ATOMIC_CONSUME); })
 
 void mthpc_synchronize_rcu_all(void);
+
+struct mthpc_rcu_head;
+
+void mthpc_call_rcu(struct mthpc_rcu_head *head,
+                    void (*func)(struct mthpc_rcu_head *));
 
 #endif /* __MTHPC_RCU_H__ */

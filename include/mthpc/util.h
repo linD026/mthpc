@@ -26,12 +26,26 @@
 
 #define mthpc_noinline __attribute__((__noinline__))
 
+#define mthpc_unused __attribute__((unused))
+
 #ifndef WRITE_ONCE
-#define WRITE_ONCE(x, val) __atomic_store_n(&(x), val, __ATOMIC_RELAXED)
+#define WRITE_ONCE(x, val)                             \
+    do {                                               \
+        mthpc_cmb();                                   \
+        __atomic_store_n(&(x), val, __ATOMIC_RELAXED); \
+        mthpc_cmb();                                   \
+    } while (0)
 #endif
 
 #ifndef READ_ONCE
-#define READ_ONCE(x) __atomic_load_n(&(x), __ATOMIC_RELAXED)
+#define READ_ONCE(x)                                    \
+    ({                                                  \
+        typeof(x) ___x;                                 \
+        mthpc_cmb();                                    \
+        ___x = __atomic_load_n(&(x), __ATOMIC_CONSUME); \
+        mthpc_cmb();                                    \
+        ___x;                                           \
+    })
 #endif
 
 #ifndef macro_var_args_count
