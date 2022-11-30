@@ -60,10 +60,11 @@ static mthpc_always_inline void mthpc_unused
 mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
-    //MTHPC_WARN_ON(node->count != __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE),
-    //              "unexpected out of gp");
+    MTHPC_WARN_ON(node->count !=
+                      __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE),
+                  "unexpected out of gp");
     mthpc_cmb();
-    WRITE_ONCE(node->count, 0);
+    __atomic_store_n(&node->count, 0, __ATOMIC_RELEASE);
 }
 
 static mthpc_always_inline void mthpc_rcu_read_lock(void)

@@ -1,5 +1,7 @@
 RAII style
 
+- upper level atomic/pthread/lock
+
 scoped_lock(rcu, mutex, ...) framework
 debug framework
 
@@ -40,3 +42,4 @@ debug framework
     - print, macro
     - thread framework
         - centralized barrier
+        - workqueue: (auto join)

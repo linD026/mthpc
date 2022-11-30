@@ -7,8 +7,13 @@ CC ?= gcc
 CFLAGS:=-g 
 CFLAGS+=-Wall
 CFLAGS+=-O1
-#CFLAGS+=-lpthread
+CFLAGS+=-pthread
 CFLAGS+=-rdynamic
+
+ifneq (debug,)
+CFLAGS+=-fsanitize=thread
+CFLAGS+=-D'CONFIG_DEBUG'
+endif
 
 SRC:=src/centralized_barrier/centralized_barrier.c
 SRC+=src/rcu/rcu.c

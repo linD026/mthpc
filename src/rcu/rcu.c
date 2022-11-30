@@ -33,7 +33,7 @@ void mthpc_unused mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 
     pthread_mutex_lock(&data->lock);
 
-    curr_gp = READ_ONCE(data->gp_seq);
+    curr_gp = data->gp_seq;
     for (node = data->head; node; node = node->next) {
         while (READ_ONCE(node->count) && READ_ONCE(node->count) <= data->gp_seq)
             mthpc_cmb();
@@ -175,7 +175,7 @@ static void mthpc_init(mthpc_indep) mthpc_rcu_init(void)
     mthpc_rcu_meta.head = NULL;
     pthread_mutex_init(&mthpc_rcu_meta.lock, NULL);
     mthpc_rcu_data_init(&mthpc_rcu_data, MTHPC_RCU_USR);
-    mthpc_pr_info("rcu init\n");
+    mthpc_print("rcu init\n");
 }
 
 static void mthpc_exit(mthpc_indep) mthpc_rcu_exit(void)
@@ -183,5 +183,5 @@ static void mthpc_exit(mthpc_indep) mthpc_rcu_exit(void)
     mthpc_synchronize_rcu_all();
     mthpc_rcu_data_exit(&mthpc_rcu_data);
     pthread_mutex_destroy(&mthpc_rcu_meta.lock);
-    mthpc_pr_info("rcu exit\n");
+    mthpc_print("rcu exit\n");
 }

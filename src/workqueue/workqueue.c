@@ -356,7 +356,7 @@ static void mthpc_init(mthpc_dep_on_indep) mthpc_workqueue_init(void)
     mthpc_workpool_init(&mthpc_workpool, "global");
     mthpc_workpool_init(&mthpc_rcu_wp, "rcu");
     /* Add new pool here. */
-    mthpc_pr_info("workqueue init\n");
+    mthpc_print("workqueue init\n");
 }
 
 static void mthpc_exit(mthpc_dep_on_indep) mthpc_workqueue_exit(void)
@@ -364,5 +364,5 @@ static void mthpc_exit(mthpc_dep_on_indep) mthpc_workqueue_exit(void)
     mthpc_workpool_exit(&mthpc_workpool);
     mthpc_workpool_exit(&mthpc_rcu_wp);
     /* Add new pool here. */
-    mthpc_pr_info("workqueue exit\n");
+    mthpc_print("workqueue exit\n");
 }

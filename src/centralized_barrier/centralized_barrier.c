@@ -22,10 +22,10 @@ void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
 
 static mthpc_init(mthpc_indep) void mthpc_centralized_barrier_init(void)
 {
-    mthpc_pr_info("centralized barrier init\n");
+    mthpc_print("centralized barrier init\n");
 }
 
 static mthpc_exit(mthpc_indep) void mthpc_centralized_barrier_exit(void)
 {
-    mthpc_pr_info("centralized barrier exit\n");
+    mthpc_print("centralized barrier exit\n");
 }
