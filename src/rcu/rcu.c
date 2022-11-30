@@ -24,46 +24,32 @@ struct mthpc_rcu_meta {
 };
 static struct mthpc_rcu_meta mthpc_rcu_meta;
 
-void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
-{
-    struct mthpc_rcu_node *node;
-
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-
-    pthread_mutex_lock(&data->lock);
-
-    for (node = data->head; node; node = node->next) {
-        pthread_rwlock_wrlock(&node->lock);
-        pthread_rwlock_unlock(&node->lock);
-    }
-
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-
-    pthread_mutex_unlock(&data->lock);
-
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
-}
-
-void mthpc_unused __mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
+void mthpc_unused mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 {
     struct mthpc_rcu_node *node;
     unsigned long curr_gp;
 
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    smp_mb();
 
     pthread_mutex_lock(&data->lock);
 
     curr_gp = READ_ONCE(data->gp_seq);
     for (node = data->head; node; node = node->next) {
-        while (READ_ONCE(node->count) > 0)
+        while (READ_ONCE(node->count) && READ_ONCE(node->count) <= data->gp_seq)
             mthpc_cmb();
     }
 
-    __atomic_fetch_add(&data->gp_seq, 1, __ATOMIC_RELEASE);
+    curr_gp = __atomic_fetch_add(&data->gp_seq, 1, __ATOMIC_RELEASE);
+    smp_mb();
+
+    for (node = data->head; node; node = node->next) {
+        while (READ_ONCE(node->count) && READ_ONCE(node->count) <= curr_gp)
+            mthpc_cmb();
+    }
 
     pthread_mutex_unlock(&data->lock);
 
-    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+    smp_mb();
 }
 
 void mthpc_synchronize_rcu(void)
@@ -99,7 +85,6 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
 
     node->id = id;
     node->count = 0;
-    pthread_rwlock_init(&node->lock, NULL);
     node->next = NULL;
     node->data = data;
 
@@ -119,17 +104,47 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
     *rev = node;
 }
 
+void mthpc_rcu_del(struct mthpc_rcu_data *data, unsigned int id,
+                   struct mthpc_rcu_node *node)
+{
+    struct mthpc_rcu_node **indirect = &data->head;
+    struct mthpc_rcu_node *target;
+
+    pthread_mutex_lock(&data->lock);
+    while (*indirect) {
+        if ((*indirect)->id == id) {
+            MTHPC_WARN_ON(node && *indirect != node,
+                          "not the same node(%p, %p)", *indirect, node);
+            target = *indirect;
+            *indirect = (*indirect)->next;
+            pthread_mutex_unlock(&data->lock);
+            free(target);
+            return;
+        }
+        indirect = &(*indirect)->next;
+    }
+    pthread_mutex_unlock(&data->lock);
+
+    MTHPC_WARN_ON(1, "target node(id=%u) not found", id);
+}
 void mthpc_rcu_thread_init(void)
 {
     mthpc_rcu_add(&mthpc_rcu_data, (unsigned int)pthread_self(),
                   &mthpc_rcu_node_ptr);
 }
 
+void mthpc_rcu_thread_exit(void)
+{
+    mthpc_rcu_del(&mthpc_rcu_data, (unsigned int)pthread_self(),
+                  mthpc_rcu_node_ptr);
+    mthpc_rcu_node_ptr = NULL;
+}
+
 void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type)
 {
     data->head = NULL;
     data->type = type;
-    data->gp_seq = 0;
+    data->gp_seq = 1;
     pthread_mutex_init(&data->lock, NULL);
 
     pthread_mutex_lock(&mthpc_rcu_meta.lock);
@@ -146,7 +161,6 @@ static void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
     node = data->head;
     while (node) {
         tmp = node->next;
-        pthread_rwlock_destroy(&node->lock);
         free(node);
         node = tmp;
     }

@@ -4,6 +4,7 @@
 #include <pthread.h>
 
 #include <mthpc/debug.h>
+#include <mthpc/util.h>
 
 /*
  * the use case in mthpc library would be like this.
@@ -28,7 +29,6 @@
 struct mthpc_rcu_node {
     unsigned int id;
     unsigned long count;
-    pthread_rwlock_t lock;
     struct mthpc_rcu_node *next;
     struct mthpc_rcu_data *data;
 } __mthpc_aligned__;
@@ -45,44 +45,33 @@ struct mthpc_rcu_data {
 extern __thread struct mthpc_rcu_node *mthpc_rcu_node_ptr;
 
 void mthpc_rcu_thread_init(void);
+void mthpc_rcu_thread_exit(void);
 
-static inline void mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
+static mthpc_always_inline void mthpc_unused
+mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
-
-    pthread_rwlock_rdlock(&node->lock);
+    mthpc_cmb();
+    WRITE_ONCE(node->count,
+               __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE));
 }
 
-static inline void mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
+static mthpc_always_inline void mthpc_unused
+mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
-
-    pthread_rwlock_unlock(&node->lock);
+    //MTHPC_WARN_ON(node->count != __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE),
+    //              "unexpected out of gp");
+    mthpc_cmb();
+    WRITE_ONCE(node->count, 0);
 }
 
-static inline void mthpc_unused
-__mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
-{
-    MTHPC_WARN_ON(!node, "rcu node == NULL");
-    __atomic_fetch_add((volatile unsigned long *)&node->count, 1,
-                       __ATOMIC_RELAXED);
-}
-
-static inline void mthpc_unused
-__mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
-{
-    MTHPC_WARN_ON(!node, "rcu node == NULL");
-
-    __atomic_fetch_add((volatile unsigned long *)&node->count, -1,
-                       __ATOMIC_RELAXED);
-}
-
-static inline void mthpc_rcu_read_lock(void)
+static mthpc_always_inline void mthpc_rcu_read_lock(void)
 {
     mthpc_rcu_read_lock_internal(mthpc_rcu_node_ptr);
 }
 
-static inline void mthpc_rcu_read_unlock(void)
+static mthpc_always_inline void mthpc_rcu_read_unlock(void)
 {
     mthpc_rcu_read_unlock_internal(mthpc_rcu_node_ptr);
 }

@@ -59,6 +59,7 @@ void *mthpc_thread_worker(void *arg)
         mthpc_centralized_barrier(thread->barrier, thread->nr);
     if (thread->func)
         thread->func(thread);
+    mthpc_rcu_thread_exit();
 
     return NULL;
 }

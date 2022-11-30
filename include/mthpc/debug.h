@@ -24,7 +24,7 @@
 #define mthpc_pr_err(fmt, ...)                                              \
     do {                                                                    \
         fprintf(mthpc_err_stream,                                           \
-                "\e[32m[TASK %u] %s:%d:%s:\e[0m "                           \
+                "\e[32m[TASK %6u] %s:%d:%s:\e[0m "                          \
                 "\e[31m" fmt "\e[0m",                                       \
                 (unsigned int)pthread_self(), __FILE__, __LINE__, __func__, \
                 ##__VA_ARGS__);                                             \

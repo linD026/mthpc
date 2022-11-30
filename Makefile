@@ -7,6 +7,7 @@ CC ?= gcc
 CFLAGS:=-g 
 CFLAGS+=-Wall
 CFLAGS+=-O1
+#CFLAGS+=-lpthread
 CFLAGS+=-rdynamic
 
 SRC:=src/centralized_barrier/centralized_barrier.c

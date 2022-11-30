@@ -20,7 +20,6 @@ static void dump_work(struct mthpc_work *work)
 int main(void)
 {
     mthpc_queue_work(&test_work);
-    sleep(2);
 
     return 0;
 }

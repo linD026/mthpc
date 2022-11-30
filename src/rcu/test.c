@@ -8,7 +8,7 @@
 #include <mthpc/rcu.h>
 
 #define NR_READER 32
-#define NR_WRITE 1
+#define NR_WRITE 5
 
 static pthread_mutex_t lock;
 static int *data;
@@ -17,35 +17,52 @@ void read_func(struct mthpc_thread *unused)
 {
     int *tmp, val;
 
+    pthread_mutex_lock(&lock);
+    pthread_mutex_unlock(&lock);
     mthpc_rcu_read_lock();
     tmp = mthpc_rcu_dereference(data);
     val = *tmp;
-    tmp = NULL;
-    mthpc_pr_info("read: number=%d\n", val);
+    //printf("val=%d\n", val);
     mthpc_rcu_read_unlock();
 
     return;
 }
 
-void write_func(struct mthpc_thread *unused)
+void write_init(struct mthpc_thread *th)
 {
-    for (int i = 1; i < NR_WRITE + 1; i++) {
-        int *old, *tmp = malloc(sizeof(int));
-        MTHPC_BUG_ON(!tmp, "allocation failed");
-        *tmp = i;
+    int **arr;
+
+    arr = malloc(sizeof(int *) * NR_WRITE);
+    MTHPC_BUG_ON(!arr, "malloc");
+    for (int i = 0; i < NR_WRITE; i++) {
+        arr[i] = malloc(sizeof(int));
+        MTHPC_BUG_ON(!arr[i], "malloc");
+        *arr[i] = i + 1;
+    }
+
+    th->arg = arr;
+}
+
+void write_func(struct mthpc_thread *th)
+{
+    int *old, *tmp, **arr = th->arg;
+
+    for (int i = 0; i < NR_WRITE; i++) {
+        tmp = arr[i];
         pthread_mutex_lock(&lock);
-        old = READ_ONCE(data);
-        mthpc_rcu_replace_pointer(data, tmp);
+        old = mthpc_rcu_replace_pointer(data, tmp);
         pthread_mutex_unlock(&lock);
         mthpc_synchronize_rcu();
         free(old);
     }
 
+    free(arr);
+
     return;
 }
 
 static MTHPC_DECLARE_THREAD(reader, NR_READER, NULL, read_func, NULL);
-static MTHPC_DECLARE_THREAD(writer, 1, NULL, write_func, NULL);
+static MTHPC_DECLARE_THREAD(writer, 1, write_init, write_func, NULL);
 
 int main(void)
 {

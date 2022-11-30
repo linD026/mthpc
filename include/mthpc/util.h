@@ -48,6 +48,25 @@
     })
 #endif
 
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#include <stdatomic.h>
+#define smp_mb() atomic_thread_fence(memory_order_seq_cst)
+#endif
+#endif
+
+#ifndef smp_mb
+#if defined(__GNUC__) && __SANITIZE_THREAD__
+#include <stdatomic.h>
+#define smp_mb() atomic_thread_fence(memory_order_seq_cst)
+#endif
+#endif
+
+/* ThreadSanitizer doesn't support __atomic_thread_fence(__ATOMIC_SEQ_CST) */
+#ifndef smp_mb
+#define smp_mb() __atomic_thread_fence(__ATOMIC_SEQ_CST)
+#endif
+
 #ifndef macro_var_args_count
 #define macro_var_args_count(...) \
     (sizeof((void *[]){ 0, __VA_ARGS__ }) / sizeof(void *) - 1)
