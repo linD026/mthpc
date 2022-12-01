@@ -11,8 +11,13 @@
 
 #define mthpc_cmb() asm volatile("" : : : "memory")
 
-#define mthpc_likely(x) __builtin_expect(!!(x), 1)
-#define mthpc_unlikely(x) __builtin_expect(!!(x), 0)
+#ifndef likely
+#define likely(x) __builtin_expect(!!(x), 1)
+#endif
+
+#ifndef unlikely
+#define unlikely(x) __builtin_expect(!!(x), 0)
+#endif
 
 #ifndef container_of
 #define container_of(ptr, type, member)                    \
@@ -22,11 +27,17 @@
     })
 #endif
 
-#define mthpc_always_inline inline __attribute__((__always_inline__))
+#ifndef __always_inline
+#define __always_inline inline __attribute__((__always_inline__))
+#endif
 
-#define mthpc_noinline __attribute__((__noinline__))
+#ifndef __noinline
+#define __noinline __attribute__((__noinline__))
+#endif
 
-#define mthpc_unused __attribute__((unused))
+#ifndef __allow_unused
+#define __allow_unused __attribute__((unused))
+#endif
 
 #ifndef WRITE_ONCE
 #define WRITE_ONCE(x, val)                             \
@@ -71,14 +82,5 @@
 #define macro_var_args_count(...) \
     (sizeof((void *[]){ 0, __VA_ARGS__ }) / sizeof(void *) - 1)
 #endif
-
-enum mthpc_prio {
-    mthpc_indep = 200,
-    mthpc_dep_on_indep,
-    mthpc_dep_on_dep,
-};
-
-#define mthpc_init(priority) __attribute__((constructor(priority)))
-#define mthpc_exit(priority) __attribute__((destructor(priority)))
 
 #endif /* __MTHPC_COMMON_H__ */

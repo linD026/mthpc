@@ -8,6 +8,10 @@
 
 #include <internal/rcu.h>
 
+#include <internal/feature.h>
+#undef _MTHPC_FEATURE
+#define _MTHPC_FEATURE rcu
+
 /* User (global) rcu data */
 
 __thread struct mthpc_rcu_node *mthpc_rcu_node_ptr;
@@ -24,7 +28,7 @@ struct mthpc_rcu_meta {
 };
 static struct mthpc_rcu_meta mthpc_rcu_meta;
 
-void mthpc_unused mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
+void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 {
     struct mthpc_rcu_node *node;
     unsigned long curr_gp;
@@ -170,18 +174,20 @@ static void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
 
 /* Provide the API to let the other feature can create their own rcu data. */
 
-static void mthpc_init(mthpc_indep) mthpc_rcu_init(void)
+static void __mthpc_init mthpc_rcu_init(void)
 {
+    mthpc_init_feature();
     mthpc_rcu_meta.head = NULL;
     pthread_mutex_init(&mthpc_rcu_meta.lock, NULL);
     mthpc_rcu_data_init(&mthpc_rcu_data, MTHPC_RCU_USR);
-    mthpc_print("rcu init\n");
+    mthpc_init_ok();
 }
 
-static void mthpc_exit(mthpc_indep) mthpc_rcu_exit(void)
+static void __mthpc_exit mthpc_rcu_exit(void)
 {
+    mthpc_exit_feature();
     mthpc_synchronize_rcu_all();
     mthpc_rcu_data_exit(&mthpc_rcu_data);
     pthread_mutex_destroy(&mthpc_rcu_meta.lock);
-    mthpc_print("rcu exit\n");
+    mthpc_exit_ok();
 }

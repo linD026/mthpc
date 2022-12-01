@@ -47,16 +47,17 @@ extern __thread struct mthpc_rcu_node *mthpc_rcu_node_ptr;
 void mthpc_rcu_thread_init(void);
 void mthpc_rcu_thread_exit(void);
 
-static mthpc_always_inline void mthpc_unused
-mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
+static __always_inline void __allow_unused
+mthpc_rcu_read_lock_internal(struct mthpc_rcu_node **node)
 {
-    MTHPC_WARN_ON(!node, "rcu node == NULL");
+    if (unlikely(!*node))
+        mthpc_rcu_thread_init();
     mthpc_cmb();
-    WRITE_ONCE(node->count,
-               __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE));
+    WRITE_ONCE((*node)->count,
+               __atomic_load_n(&(*node)->data->gp_seq, __ATOMIC_ACQUIRE));
 }
 
-static mthpc_always_inline void mthpc_unused
+static __always_inline void __allow_unused
 mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
@@ -67,12 +68,12 @@ mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
     __atomic_store_n(&node->count, 0, __ATOMIC_RELEASE);
 }
 
-static mthpc_always_inline void mthpc_rcu_read_lock(void)
+static __always_inline void mthpc_rcu_read_lock(void)
 {
-    mthpc_rcu_read_lock_internal(mthpc_rcu_node_ptr);
+    mthpc_rcu_read_lock_internal(&mthpc_rcu_node_ptr);
 }
 
-static mthpc_always_inline void mthpc_rcu_read_unlock(void)
+static __always_inline void mthpc_rcu_read_unlock(void)
 {
     mthpc_rcu_read_unlock_internal(mthpc_rcu_node_ptr);
 }

@@ -1,7 +1,6 @@
 #ifndef __MTHPC_WORKQUEUE_H__
 #define __MTHPC_WORKQUEUE_H__
 
-#include <mthpc/util.h>
 #include <mthpc/list.h>
 
 struct mthpc_workqueue;

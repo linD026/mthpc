@@ -11,6 +11,11 @@
 #define mthpc_list_entry_rcu(ptr, type, member) \
     container_of(READ_ONCE(ptr), type, member)
 
+#define mthpc_list_for_each_entry_rcu(pos, head, member)                 \
+    for (pos = mthpc_list_entry_rcu((head)->next, typeof(*pos), member); \
+         &pos->member != (head);                                         \
+         pos = mthpc_list_entry_rcu(pos->member.next, typeof(*pos), member))
+
 static inline void __mthpc_list_add_rcu(struct mthpc_list_head *new,
                                         struct mthpc_list_head *prev,
                                         struct mthpc_list_head *next)
@@ -25,13 +30,13 @@ static inline void __mthpc_list_add_rcu(struct mthpc_list_head *new,
 static inline void mthpc_list_add_rcu(struct mthpc_list_head *new,
                                       struct mthpc_list_head *head)
 {
-    __mthpc_list_add(new, head, head->next);
+    __mthpc_list_add_rcu(new, head, head->next);
 }
 
 static inline void mthpc_list_add_tail_rcu(struct mthpc_list_head *new,
                                            struct mthpc_list_head *head)
 {
-    __mthpc_list_add(new, head->prev, head);
+    __mthpc_list_add_rcu(new, head->prev, head);
 }
 
 static inline void __mthpc_list_del_rcu(struct mthpc_list_head *prev,
@@ -39,12 +44,12 @@ static inline void __mthpc_list_del_rcu(struct mthpc_list_head *prev,
 {
     next->prev = prev;
     mthpc_cmb();
-    prev->next = next;
+    WRITE_ONCE(prev->next, next);
 }
 
 static inline void mthpc_list_del_rcu(struct mthpc_list_head *node)
 {
-    __mthpc_list_del(node->prev, node->next);
+    __mthpc_list_del_rcu(node->prev, node->next);
     mthpc_list_init(node);
 }
 

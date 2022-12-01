@@ -1,6 +1,10 @@
 #include <mthpc/centralized_barrier.h>
 #include <mthpc/debug.h>
 
+#include <internal/feature.h>
+#undef _MTHPC_FEATURE
+#define _MTHPC_FEATURE centralized_barrier
+
 static __thread int mthpc_local_sense = 0;
 
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
@@ -20,12 +24,14 @@ void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
     }
 }
 
-static mthpc_init(mthpc_indep) void mthpc_centralized_barrier_init(void)
+static __mthpc_init void mthpc_centralized_barrier_init(void)
 {
-    mthpc_print("centralized barrier init\n");
+    mthpc_init_feature();
+    mthpc_init_ok();
 }
 
-static mthpc_exit(mthpc_indep) void mthpc_centralized_barrier_exit(void)
+static __mthpc_exit void mthpc_centralized_barrier_exit(void)
 {
-    mthpc_print("centralized barrier exit\n");
+    mthpc_exit_feature();
+    mthpc_exit_ok();
 }

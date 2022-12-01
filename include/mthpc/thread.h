@@ -3,8 +3,6 @@
 
 #include <mthpc/centralized_barrier.h>
 #include <mthpc/rcu.h>
-#include <mthpc/thread.h>
-#include <mthpc/debug.h>
 
 struct mthpc_thread {
     /* Make sure nr member is first member. */
@@ -76,6 +74,7 @@ void __mthpc_thread_run(void *threads, unsigned int nr)
             pthread_create(&thread->th[j], NULL, mthpc_thread_worker, thread);
     }
 
+    /* Add to workqueue. */
     for (int i = 0; i < nr; i++) {
         struct mthpc_thread *thread = ths[i];
         for (int j = 0; j < thread->nr; j++)

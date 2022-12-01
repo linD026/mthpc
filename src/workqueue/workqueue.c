@@ -7,9 +7,14 @@
 #include <mthpc/workqueue.h>
 #include <mthpc/util.h>
 #include <mthpc/debug.h>
-#include <mthpc/list.h>
+#include <mthpc/print.h> /* for dump work */
 #include <mthpc/rculist.h>
-#include <internal/rcu.h>
+
+#include <internal/rcu.h> /* for rcu workqueue */
+
+#include <internal/feature.h>
+#undef _MTHPC_FEATURE
+#define _MTHPC_FEATURE workqueue
 
 #define MTHPC_WQ_NR_CPU (4U)
 #define MTHPC_WQ_CPU_MASK (MTHPC_WQ_NR_CPU - 1)
@@ -27,8 +32,6 @@ struct mthpc_workqueue {
     /* workpool linked list */
     struct mthpc_list_head node;
     struct mthpc_workpool *wp;
-
-    struct mthpc_rcu_node rcu_node;
 };
 
 struct mthpc_workpool {
@@ -38,13 +41,11 @@ struct mthpc_workpool {
     unsigned int count;
 
     pthread_mutex_t lock;
-    struct mthpc_rcu_node rcu_node;
-    struct mthpc_rcu_data rcu_data;
 } __mthpc_aligned__;
 static struct mthpc_workpool mthpc_workpool;
 static struct mthpc_workpool mthpc_rcu_wp;
 
-static mthpc_always_inline int mthpc_wq_get_cpu(struct mthpc_workqueue *wq)
+static __always_inline int mthpc_wq_get_cpu(struct mthpc_workqueue *wq)
 {
 #ifdef __linux__
     return (int)(__atomic_load_n(&wq->__actived_cpu, __ATOMIC_RELAXED) &
@@ -54,8 +55,8 @@ static mthpc_always_inline int mthpc_wq_get_cpu(struct mthpc_workqueue *wq)
 #endif
 }
 
-static mthpc_always_inline void mthpc_wq_set_cpu(struct mthpc_workqueue *wq,
-                                                 int cpu)
+static __always_inline void mthpc_wq_set_cpu(struct mthpc_workqueue *wq,
+                                             int cpu)
 {
 #ifdef __linux__
     unsigned int masked_cpuid = ~MTHPC_WQ_CPU_MASK | (unsigned int)cpu;
@@ -65,7 +66,7 @@ static mthpc_always_inline void mthpc_wq_set_cpu(struct mthpc_workqueue *wq,
 #endif
 }
 
-static mthpc_always_inline void mthpc_wq_run_on_cpu(struct mthpc_workqueue *wq)
+static __always_inline void mthpc_wq_run_on_cpu(struct mthpc_workqueue *wq)
 {
 #ifdef __linux__
     unsigned int cpuid = mthpc_wq_get_cpu(wq);
@@ -80,7 +81,7 @@ static mthpc_always_inline void mthpc_wq_run_on_cpu(struct mthpc_workqueue *wq)
 #endif
 }
 
-static mthpc_always_inline bool mthpc_wq_active(struct mthpc_workqueue *wq)
+static __always_inline bool mthpc_wq_active(struct mthpc_workqueue *wq)
 {
     unsigned int masked_active = 0;
 
@@ -89,14 +90,13 @@ static mthpc_always_inline bool mthpc_wq_active(struct mthpc_workqueue *wq)
     return masked_active & MTHPC_WQ_ACTIVED_FLAG;
 }
 
-static mthpc_always_inline void mthpc_wq_mkactive(struct mthpc_workqueue *wq)
+static __always_inline void mthpc_wq_mkactive(struct mthpc_workqueue *wq)
 {
     __atomic_or_fetch(&wq->__actived_cpu, MTHPC_WQ_ACTIVED_FLAG,
                       __ATOMIC_RELEASE);
 }
 
-static mthpc_always_inline void
-mthpc_wq_clear_active(struct mthpc_workqueue *wq)
+static __always_inline void mthpc_wq_clear_active(struct mthpc_workqueue *wq)
 {
     __atomic_and_fetch(&wq->__actived_cpu, ~MTHPC_WQ_ACTIVED_FLAG,
                        __ATOMIC_RELEASE);
@@ -124,6 +124,7 @@ static void *mthpc_worker_run(void *arg)
     struct mthpc_work *work;
     unsigned int progress = 0;
 
+    mthpc_rcu_thread_init();
     mthpc_wq_run_on_cpu(wq);
 
     while (1) {
@@ -152,10 +153,12 @@ static void *mthpc_worker_run(void *arg)
         }
     }
 
+    mthpc_rcu_thread_exit();
+
     return NULL;
 }
 
-static mthpc_always_inline void mthpc_works_handler(struct mthpc_workqueue *wq)
+static __always_inline void mthpc_works_handler(struct mthpc_workqueue *wq)
 {
     pthread_create(&wq->tid, NULL, mthpc_worker_run, wq);
 }
@@ -174,24 +177,23 @@ static void inline mthpc_workqueue_add_locked(struct mthpc_workqueue *wq,
 static struct mthpc_workqueue *
 mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
 {
-    struct mthpc_workqueue *wq = NULL;
-    struct mthpc_workqueue *prealloc = NULL;
-    struct mthpc_list_head *curr;
+    struct mthpc_workqueue *wq = NULL, *prealloc = NULL;
+    struct mthpc_workqueue *curr;
+    struct mthpc_list_head *pos;
 
     /* fast path - find the existed first. */
-    mthpc_rcu_read_lock_internal(&wp->rcu_node);
-    mthpc_list_for_each (curr, &wp->head) {
-        struct mthpc_workqueue *tmp =
-            container_of(curr, struct mthpc_workqueue, node);
-        if (cpu == -1 || (cpu & MTHPC_WQ_CPU_MASK) == mthpc_wq_get_cpu(tmp)) {
-            wq = tmp;
+    mthpc_rcu_read_lock();
+    mthpc_list_for_each_entry_rcu(curr, &wp->head, node)
+    {
+        if (cpu == -1 || (cpu & MTHPC_WQ_CPU_MASK) == mthpc_wq_get_cpu(curr)) {
+            wq = curr;
             pthread_mutex_lock(&wq->lock);
             mthpc_workqueue_add_locked(wq, work);
             pthread_mutex_unlock(&wq->lock);
             break;
         }
     }
-    mthpc_rcu_read_unlock_internal(&wp->rcu_node);
+    mthpc_rcu_read_unlock();
     if (wq)
         goto out;
 
@@ -214,9 +216,9 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
     /* Slow path, step 2 - add to the pool */
     pthread_mutex_lock(&wp->lock);
     /* Does others already created? check again */
-    mthpc_list_for_each (curr, &wp->head) {
+    mthpc_list_for_each (pos, &wp->head) {
         struct mthpc_workqueue *tmp =
-            container_of(curr, struct mthpc_workqueue, node);
+            container_of(pos, struct mthpc_workqueue, node);
         if (cpu == mthpc_wq_get_cpu(tmp)) {
             wq = tmp;
             goto unlock;
@@ -232,6 +234,9 @@ unlock:
     mthpc_works_handler(wq);
 
 out:
+    if (prealloc)
+        free(prealloc);
+
     return wq;
 }
 
@@ -340,29 +345,30 @@ static void mthpc_workpool_init(struct mthpc_workpool *wp, const char *name)
     wp->name = name;
     pthread_mutex_init(&wp->lock, NULL);
     mthpc_list_init(&wp->head);
-    mthpc_rcu_data_init(&wp->rcu_data, MTHPC_RCU_WORKQUEUE);
 }
 
 static void mthpc_workpool_exit(struct mthpc_workpool *wp)
 {
-    mthpc_synchronize_rcu_internal(&wp->rcu_data);
+    mthpc_synchronize_rcu();
     mthpc_workqueues_join(wp);
     pthread_mutex_destroy(&wp->lock);
 }
 
 // create one thread handle join
-static void mthpc_init(mthpc_dep_on_indep) mthpc_workqueue_init(void)
+static void __mthpc_init mthpc_workqueue_init(void)
 {
+    mthpc_init_feature();
     mthpc_workpool_init(&mthpc_workpool, "global");
     mthpc_workpool_init(&mthpc_rcu_wp, "rcu");
     /* Add new pool here. */
-    mthpc_print("workqueue init\n");
+    mthpc_init_ok();
 }
 
-static void mthpc_exit(mthpc_dep_on_indep) mthpc_workqueue_exit(void)
+static void __mthpc_exit mthpc_workqueue_exit(void)
 {
+    mthpc_exit_feature();
     mthpc_workpool_exit(&mthpc_workpool);
     mthpc_workpool_exit(&mthpc_rcu_wp);
     /* Add new pool here. */
-    mthpc_print("workqueue exit\n");
+    mthpc_exit_ok();
 }

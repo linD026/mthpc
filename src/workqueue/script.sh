@@ -6,8 +6,9 @@ INCLUDE="$DIR/include"
 CFLAGS="-g -rdynamic -fsanitize=thread -pthread -I$INCLUDE"
 
 make -C $DIR clean
-make -C $DIR
+make -C $DIR debug=1
 gcc -o test test.c $DIR/libmthpc.a $CFLAGS
-./test
+#./test
+TSAN_OPTIONS="force_seq_cst_atomics=1" ./test
 rm -f test
 make -C $DIR clean

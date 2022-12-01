@@ -1,4 +1,5 @@
 #include <mthpc/workqueue.h>
+#include <mthpc/rcu.h>
 #include <mthpc/debug.h>
 #include <unistd.h>
 

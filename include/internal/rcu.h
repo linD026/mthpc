@@ -10,7 +10,7 @@
 void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type);
 void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
                    struct mthpc_rcu_node **rev);
-void mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node);
+void mthpc_rcu_read_lock_internal(struct mthpc_rcu_node **node);
 void mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node);
 void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data);
 
