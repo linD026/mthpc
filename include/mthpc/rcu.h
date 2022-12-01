@@ -27,7 +27,7 @@
  */
 
 struct mthpc_rcu_node {
-    unsigned int id;
+    unsigned long id;
     unsigned long count;
     struct mthpc_rcu_node *next;
     struct mthpc_rcu_data *data;

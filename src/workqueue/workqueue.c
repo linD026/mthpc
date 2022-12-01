@@ -281,8 +281,8 @@ void mthpc_dump_work(struct mthpc_work *work)
 
     mthpc_print("Workqueue dump: pool: %s, queue: %p, work: %s\n", wp->name, wq,
                 work->name);
-    mthpc_print("CPU: %u TID: %x func: %p private: %p\n", mthpc_wq_get_cpu(wq),
-                (unsigned int)wq->tid, work->func, work->private);
+    mthpc_print("CPU: %u TID: %lx func: %p private: %p\n", mthpc_wq_get_cpu(wq),
+                (unsigned long)wq->tid, work->func, work->private);
     mthpc_dump_stack();
 }
 

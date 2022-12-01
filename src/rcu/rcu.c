@@ -98,6 +98,7 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
             pthread_mutex_unlock(&data->lock);
             free(node);
             MTHPC_WARN_ON(1, "already existed (%6u)", id);
+            *rev = *indirect;
             return;
         }
         indirect = &(*indirect)->next;
@@ -135,7 +136,7 @@ void mthpc_rcu_thread_init(void)
 {
     if (mthpc_rcu_node_ptr)
         return;
-    mthpc_rcu_add(&mthpc_rcu_data, (unsigned int)pthread_self(),
+    mthpc_rcu_add(&mthpc_rcu_data, (unsigned long)pthread_self(),
                   &mthpc_rcu_node_ptr);
 }
 
@@ -143,9 +144,8 @@ void mthpc_rcu_thread_exit(void)
 {
     if (!mthpc_rcu_node_ptr)
         return;
-    mthpc_rcu_del(&mthpc_rcu_data, (unsigned int)pthread_self(),
+    mthpc_rcu_del(&mthpc_rcu_data, (unsigned long)pthread_self(),
                   mthpc_rcu_node_ptr);
-    smp_mb();
     mthpc_rcu_node_ptr = NULL;
 }
 
@@ -173,6 +173,7 @@ static void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
         free(node);
         node = tmp;
     }
+    data->head = NULL;
     pthread_mutex_unlock(&data->lock);
     pthread_mutex_destroy(&data->lock);
 }
