@@ -68,6 +68,9 @@ int main(void)
 {
     MTHPC_DECLARE_THREADS(threads, &reader, &writer);
 
+    mthpc_rcu_read_lock();
+    mthpc_rcu_read_unlock();
+
     data = malloc(sizeof(int));
     MTHPC_BUG_ON(!data, "allocation failed");
     *data = 0;

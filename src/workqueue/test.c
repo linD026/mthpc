@@ -20,6 +20,7 @@ static void dump_work(struct mthpc_work *work)
 
 int main(void)
 {
+    //mthpc_rcu_thread_init();
     mthpc_queue_work(&test_work);
 
     return 0;

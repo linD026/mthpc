@@ -8,6 +8,7 @@
 #include <mthpc/util.h>
 #include <mthpc/debug.h>
 #include <mthpc/print.h> /* for dump work */
+#include <mthpc/rcu.h> /* queue work will use rcu */
 #include <mthpc/rculist.h>
 
 #include <internal/rcu.h> /* for rcu workqueue */
@@ -124,6 +125,8 @@ static void *mthpc_worker_run(void *arg)
     struct mthpc_work *work;
     unsigned int progress = 0;
 
+    // Why we do the rcu init manually in rcu read lock will let
+    // mthpc_rcu_node_ptr sometimes become NULL but aleady add to list?
     mthpc_rcu_thread_init();
     mthpc_wq_run_on_cpu(wq);
 
@@ -167,7 +170,7 @@ static void inline mthpc_workqueue_add_locked(struct mthpc_workqueue *wq,
                                               struct mthpc_work *work)
 {
     /* Prevent mthpc_workqueues_join() to delete the wq. */
-    mthpc_list_add_tail(&work->node, &wq->head);
+    mthpc_list_add_tail_rcu(&work->node, &wq->head);
     wq->count++;
     MTHPC_WARN_ON(!mthpc_wq_active(wq), "Add work to inactive wq");
     work->wq = wq;
@@ -311,6 +314,8 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
             /* We should waiting for the works in wq. */
             if (!wq->count) {
                 mthpc_list_del_rcu(&wq->node);
+                // TODO: Could we avoid synchronize with hoding two locks?
+                mthpc_synchronize_rcu();
                 mthpc_list_add(&wq->node, &free_list);
                 mthpc_wq_clear_active(wq);
             }
@@ -359,7 +364,7 @@ static void __mthpc_init mthpc_workqueue_init(void)
 {
     mthpc_init_feature();
     mthpc_workpool_init(&mthpc_workpool, "global");
-    mthpc_workpool_init(&mthpc_rcu_wp, "rcu");
+    //mthpc_workpool_init(&mthpc_rcu_wp, "rcu");
     /* Add new pool here. */
     mthpc_init_ok();
 }
@@ -368,7 +373,7 @@ static void __mthpc_exit mthpc_workqueue_exit(void)
 {
     mthpc_exit_feature();
     mthpc_workpool_exit(&mthpc_workpool);
-    mthpc_workpool_exit(&mthpc_rcu_wp);
+    //mthpc_workpool_exit(&mthpc_rcu_wp);
     /* Add new pool here. */
     mthpc_exit_ok();
 }

@@ -50,7 +50,7 @@ static inline void __mthpc_list_del_rcu(struct mthpc_list_head *prev,
 static inline void mthpc_list_del_rcu(struct mthpc_list_head *node)
 {
     __mthpc_list_del_rcu(node->prev, node->next);
-    mthpc_list_init(node);
+    node->prev = NULL;
 }
 
 #endif /* __MTHPC_RCULIST_H__ */
