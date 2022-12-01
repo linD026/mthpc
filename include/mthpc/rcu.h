@@ -29,6 +29,7 @@
 struct mthpc_rcu_node {
     unsigned long id;
     unsigned long count;
+    unsigned long gp_seq;
     struct mthpc_rcu_node *next;
     struct mthpc_rcu_data *data;
 } __mthpc_aligned__;
@@ -52,19 +53,21 @@ mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
     mthpc_cmb();
-    WRITE_ONCE(node->count,
+    WRITE_ONCE(node->gp_seq,
                __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE));
+    __atomic_fetch_add(&node->count, 1, __ATOMIC_RELAXED);
 }
 
 static __always_inline void __allow_unused
 mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 {
     MTHPC_WARN_ON(!node, "rcu node == NULL");
-    MTHPC_WARN_ON(node->count !=
+    MTHPC_WARN_ON(node->gp_seq !=
                       __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE),
                   "unexpected out of gp");
     mthpc_cmb();
-    __atomic_store_n(&node->count, 0, __ATOMIC_RELEASE);
+    __atomic_fetch_add(&node->count, -1, __ATOMIC_RELAXED);
+    __atomic_store_n(&node->gp_seq, 0, __ATOMIC_RELEASE);
 }
 
 static __always_inline void mthpc_rcu_read_lock(void)

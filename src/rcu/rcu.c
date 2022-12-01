@@ -39,7 +39,9 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 
     curr_gp = data->gp_seq;
     for (node = data->head; node; node = node->next) {
-        while (READ_ONCE(node->count) && READ_ONCE(node->count) <= data->gp_seq)
+        while (READ_ONCE(node->gp_seq) &&
+               READ_ONCE(node->gp_seq) <= data->gp_seq &&
+               READ_ONCE(node->count))
             mthpc_cmb();
     }
 
@@ -47,7 +49,8 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
     smp_mb();
 
     for (node = data->head; node; node = node->next) {
-        while (READ_ONCE(node->count) && READ_ONCE(node->count) <= curr_gp)
+        while (READ_ONCE(node->gp_seq) && READ_ONCE(node->gp_seq) <= curr_gp &&
+               READ_ONCE(node->count))
             mthpc_cmb();
     }
 
@@ -89,6 +92,7 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
 
     node->id = id;
     node->count = 0;
+    node->gp_seq = 0;
     node->next = NULL;
     node->data = data;
 

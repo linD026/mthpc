@@ -21,10 +21,10 @@ static inline unsigned long __mthpc_get_ms(void)
         fprintf(mthpc_debug_stream, fmt, ##__VA_ARGS__); \
     } while (0)
 
-#define mthpc_pr_info(fmt, ...)                                            \
-    do {                                                                   \
-        mthpc_print("\e[32m[%-10lu]\e[0m %s:%d:%s: " fmt, __mthpc_get_ms(),\
-                    __FILE__, __LINE__, __func__, ##__VA_ARGS__);          \
+#define mthpc_pr_info(fmt, ...)                                             \
+    do {                                                                    \
+        mthpc_print("\e[32m[%-10lu]\e[0m %s:%d:%s: " fmt, __mthpc_get_ms(), \
+                    __FILE__, __LINE__, __func__, ##__VA_ARGS__);           \
     } while (0)
 
 #define mthpc_pr_err(fmt, ...)                                             \
