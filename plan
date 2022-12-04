@@ -34,6 +34,8 @@ basic container - hash table
     - table[NR_xx]->linked_list
         - recycle: simple rcu + workqueue
     => related: linked list, workqueue, simple rcu (async)
+    - Safe object
+        - refcount
 
 Advance - mlrcu, scoped_lock
     - use hash table
