@@ -32,12 +32,7 @@ static MTHPC_DECLARE_THREADS(thg_obj, &th_obj_a, &th_obj_b);
 int main(void)
 {
     /* Run thread group object */
-    mthpc_thread_run(&thg_obj);
-    /* Run thread object */
-    mthpc_thread_run(&th_obj_a);
-
-    mthpc_thread_run(&th_obj_b);
-    mthpc_thread_run(&thg_obj);
+    mthpc_thread_async_run(&thg_obj);
 
     mthpc_pr_info("th_arg_a=%d\n", th_arg_a);
 

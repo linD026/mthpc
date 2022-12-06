@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <sys/time.h>
+#include <pthread.h>
 
 #define mthpc_debug_stream stdout
 #define mthpc_err_stream stderr

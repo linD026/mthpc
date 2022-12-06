@@ -25,7 +25,7 @@ hazard pointer
 concurrent linked list
 ** hash table
 receiver and sender
-softirq
+softirq: signal (with the task) to workqueue thread?
 
 ---
 

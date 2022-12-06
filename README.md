@@ -3,7 +3,7 @@
 mthpc is parallelism and concurrency library for C language. It targets to
 improve the parallel and concurrent part of userspace C. mtphc provides the
 thread framework, asynchronous worker (deferred work), synchronous mechanisms,
-and some concurrent data structures. mtphc is based on [GCC builtin atomic operation](https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html)
+and some concurrent data structures. mthpc is based on [GCC builtin atomic operation](https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html)
 and [POSIX Threads](https://en.wikipedia.org/wiki/Pthreads).
 
 ## Features
@@ -41,9 +41,12 @@ Note that all the object declarations are static size, which means they
 Run the thread group with the blocking until all the threads finish.
 Before execute the body function, all of the threads will wait until
 all the initializations have been done.
+Moreover, to let the object become async (non-blocking, auto-join) you
+can use `_async_` function.
 
 ```cpp
 void mthpc_thread_run(&group_object /* or thread object */);
+void mthpc_thread_async_run(&group_object /* or thread object */);
 ```
 
 #### Examples

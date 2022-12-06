@@ -11,6 +11,7 @@
 #include <mthpc/rcu.h> /* queue work will use rcu */
 #include <mthpc/rculist.h>
 
+#include <internal/workqueue.h> /* provide wq for other features */
 #include <internal/rcu.h> /* for rcu workqueue */
 
 #include <internal/feature.h>
@@ -44,7 +45,8 @@ struct mthpc_workpool {
     pthread_mutex_t lock;
 } __mthpc_aligned__;
 static struct mthpc_workpool mthpc_workpool;
-static struct mthpc_workpool mthpc_rcu_wp;
+static struct mthpc_workpool mthpc_thread_wp;
+//static struct mthpc_workpool mthpc_rcu_wp;
 
 static __always_inline int mthpc_wq_get_cpu(struct mthpc_workqueue *wq)
 {
@@ -158,7 +160,7 @@ static void *mthpc_worker_run(void *arg)
 
     mthpc_rcu_thread_exit();
 
-    return NULL;
+    pthread_exit(NULL);
 }
 
 static __always_inline void mthpc_works_handler(struct mthpc_workqueue *wq)
@@ -243,30 +245,31 @@ out:
     return wq;
 }
 
-int mthpc_rcu_queue_work(struct mthpc_work *work)
+static int __mthpc_schedule_work_on(struct mthpc_workpool *wp, int cpu,
+                                    struct mthpc_work *work)
 {
     struct mthpc_workqueue *wq;
 
     mthpc_list_init(&work->node);
-    wq = mthpc_get_workqueue(&mthpc_rcu_wp, -1, work);
+    wq = mthpc_get_workqueue(wp, cpu, work);
     if (!wq)
         return -ENOMEM;
 
     return 0;
 }
 
+/* internal API */
+
+int mthpc_thread_work_on(struct mthpc_work *work)
+{
+    return __mthpc_schedule_work_on(&mthpc_thread_wp, -1, work);
+}
+
 /* user API */
 
 int mthpc_schedule_work_on(int cpu, struct mthpc_work *work)
 {
-    struct mthpc_workqueue *wq;
-
-    mthpc_list_init(&work->node);
-    wq = mthpc_get_workqueue(&mthpc_workpool, cpu, work);
-    if (!wq)
-        return -ENOMEM;
-
-    return 0;
+    return __mthpc_schedule_work_on(&mthpc_workpool, cpu, work);
 }
 
 int mthpc_queue_work(struct mthpc_work *work)
@@ -364,6 +367,7 @@ static void __mthpc_init mthpc_workqueue_init(void)
 {
     mthpc_init_feature();
     mthpc_workpool_init(&mthpc_workpool, "global");
+    mthpc_workpool_init(&mthpc_thread_wp, "thread");
     //mthpc_workpool_init(&mthpc_rcu_wp, "rcu");
     /* Add new pool here. */
     mthpc_init_ok();
@@ -373,6 +377,7 @@ static void __mthpc_exit mthpc_workqueue_exit(void)
 {
     mthpc_exit_feature();
     mthpc_workpool_exit(&mthpc_workpool);
+    mthpc_workpool_exit(&mthpc_thread_wp);
     //mthpc_workpool_exit(&mthpc_rcu_wp);
     /* Add new pool here. */
     mthpc_exit_ok();

@@ -19,11 +19,11 @@ enum mthpc_prio {
     mthpc_prio_rcu,
     mthpc_prio_centralized_barrier,
 
-    /* priority 2 - depend on prio 1 */
-    mthpc_prio_workqueue,
+    /* priority 2 */
+    mthpc_prio_thread, /* thread will use workqueue, so initialize first */
 
-    /* priority 3 - depend on prio 2 */
-    mthpc_prio_thread,
+    /* priority 3 */
+    mthpc_prio_workqueue,
 
     mthpc_prio_nr,
 };
