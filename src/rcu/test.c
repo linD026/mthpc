@@ -40,12 +40,12 @@ void write_init(struct mthpc_thread *th)
         *arr[i] = i + 1;
     }
 
-    th->arg = arr;
+    th->args = arr;
 }
 
 void write_func(struct mthpc_thread *th)
 {
-    int *old, *tmp, **arr = th->arg;
+    int *old, *tmp, **arr = th->args;
 
     for (int i = 0; i < NR_WRITE; i++) {
         tmp = arr[i];

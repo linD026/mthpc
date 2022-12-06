@@ -22,6 +22,9 @@ enum mthpc_prio {
     /* priority 2 - depend on prio 1 */
     mthpc_prio_workqueue,
 
+    /* priority 3 - depend on prio 2 */
+    mthpc_prio_thread,
+
     mthpc_prio_nr,
 };
 

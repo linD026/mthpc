@@ -18,6 +18,7 @@ endif
 SRC:=src/centralized_barrier/centralized_barrier.c
 SRC+=src/rcu/rcu.c
 SRC+=src/workqueue/workqueue.c
+SRC+=src/thread/thread.c
 #SRC+=src/mlrcu/mlrcu.c
 
 OBJ:=$(SRC:.c=.o)

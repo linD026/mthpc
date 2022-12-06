@@ -43,11 +43,12 @@ Before execute the body function, all of the threads will wait until
 all the initializations have been done.
 
 ```cpp
-void mthpc_thread_run(&group_name);
+void mthpc_thread_run(&group_object /* or thread object */);
 ```
 
 #### Examples
 
+* [thread self-test](src/thread/test.c)
 * [rcu self-test](src/rcu/test.c)
 
 
