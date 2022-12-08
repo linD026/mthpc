@@ -59,6 +59,7 @@ struct mthpc_thread {
 
 void __mthpc_thread_run(void *threads, unsigned int nr);
 void __mthpc_thread_async_run(void *threads, unsigned int nr);
+void __mthpc_thread_async_wait(void *threads, unsigned int nr);
 
 #define mthpc_thread_run(threads)                                 \
     do {                                                          \
@@ -82,4 +83,14 @@ void __mthpc_thread_async_run(void *threads, unsigned int nr);
             MTHPC_WARN_ON(1, "Unexpected thread type");                 \
     } while (0)
 
+#define mthpc_thread_async_wait(threads)                                 \
+    do {                                                                 \
+        if ((threads)->type & MTHPC_THREAD_TYPE) {                       \
+            void *__mthpc_ths[1] = { (threads) };                        \
+            __mthpc_thread_async_wait(__mthpc_ths, 1);                   \
+        } else if ((threads)->type & MTHPC_THREADS_TYPE)                 \
+            __mthpc_thread_async_wait((threads)->thread, (threads)->nr); \
+        else                                                             \
+            MTHPC_WARN_ON(1, "Unexpected thread type");                  \
+    } while (0)
 #endif /* __MTHPC_THREAD_H__ */

@@ -34,6 +34,8 @@ int main(void)
     /* Run thread group object */
     mthpc_thread_async_run(&thg_obj);
 
+    mthpc_thread_async_wait(&thg_obj);
+
     mthpc_pr_info("th_arg_a=%d\n", th_arg_a);
 
     return 0;

@@ -45,8 +45,9 @@ Moreover, to let the object become async (non-blocking, auto-join) you
 can use `_async_` function.
 
 ```cpp
-void mthpc_thread_run(&group_object /* or thread object */);
-void mthpc_thread_async_run(&group_object /* or thread object */);
+void mthpc_thread_run(&object /* group or thread object */);
+void mthpc_thread_async_run(&object /* group or thread object */);
+void mthpc_thread_async_wait(&object /* group or thread object */);
 ```
 
 #### Examples

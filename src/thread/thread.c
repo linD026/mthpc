@@ -77,6 +77,8 @@ static void *mthpc_thread_async_worker(void *arg)
     pthread_exit(NULL);
 }
 
+/* User API */
+
 void __mthpc_thread_run(void *threads, unsigned int nr)
 {
     struct mthpc_thread **ths = (struct mthpc_thread **)threads;
@@ -126,6 +128,28 @@ void __mthpc_thread_async_run(void *threads, unsigned int nr)
 
     mthpc_thread_work_on(&mthpc_thread_work);
 }
+
+void __mthpc_thread_async_wait(void *threads, unsigned int nr)
+{
+    struct mthpc_thread **ths = (struct mthpc_thread **)threads;
+
+    smp_mb();
+
+    for (int i = 0; i < nr; i++) {
+        struct mthpc_thread *thread = ths[i];
+
+        MTHPC_BUG_ON(!(thread->type & MTHPC_THREAD_ASYNC_TYPE),
+                     "non-async thread oject wait");
+
+        for (int j = 0; j < thread->nr; j++)
+            while (READ_ONCE(thread->nr_exited) != thread->nr)
+                mthpc_cmb();
+    }
+
+    smp_mb();
+}
+
+/* init/exit function */
 
 static __mthpc_init void mthpc_thread_init(void)
 {
