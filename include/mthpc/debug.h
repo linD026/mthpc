@@ -1,8 +1,8 @@
 #ifndef __MTHPC_DEBUG_H__
 #define __MTHPC_DEBUG_H__
 
+#include <stdlib.h>
 #include <execinfo.h>
-#include <pthread.h>
 
 #include <mthpc/print.h>
 #include <mthpc/util.h>

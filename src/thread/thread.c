@@ -1,7 +1,7 @@
 #include <stdlib.h>
-#include <pthread.h>
 
 #include <mthpc/thread.h>
+#include <mthpc/spinlock.h>
 #include <mthpc/centralized_barrier.h>
 #include <mthpc/rcu.h>
 #include <mthpc/workqueue.h>
@@ -17,7 +17,7 @@ struct mthpc_threads_info {
     struct mthpc_list_head head;
     /* number of thread (group) object */
     unsigned long nr;
-    pthread_mutex_t lock;
+    spinlock_t lock;
 };
 static struct mthpc_threads_info mthpc_threads_info;
 
@@ -26,7 +26,7 @@ static void mthpc_thread_wq_join(struct mthpc_work *work)
     struct mthpc_thread *thread;
     struct mthpc_list_head *n, *pos;
 
-    pthread_mutex_lock(&mthpc_threads_info.lock);
+    spin_lock(&mthpc_threads_info.lock);
     mthpc_list_for_each_safe (pos, n, &mthpc_threads_info.head) {
         thread = container_of(pos, struct mthpc_thread, node);
         if (READ_ONCE(thread->nr_exited) == thread->nr) {
@@ -38,7 +38,7 @@ static void mthpc_thread_wq_join(struct mthpc_work *work)
     }
     if (mthpc_threads_info.nr)
         mthpc_thread_work_on(work);
-    pthread_mutex_unlock(&mthpc_threads_info.lock);
+    spin_unlock(&mthpc_threads_info.lock);
 }
 
 static MTHPC_DECLARE_WORK(mthpc_thread_work, mthpc_thread_wq_join, NULL);
@@ -115,10 +115,10 @@ void __mthpc_thread_async_run(void *threads, unsigned int nr)
         thread->type |= MTHPC_THREAD_ASYNC_TYPE;
 
         mthpc_list_init(&thread->node);
-        pthread_mutex_lock(&mthpc_threads_info.lock);
+        spin_lock(&mthpc_threads_info.lock);
         mthpc_list_add_tail(&thread->node, &mthpc_threads_info.head);
         mthpc_threads_info.nr++;
-        pthread_mutex_unlock(&mthpc_threads_info.lock);
+        spin_unlock(&mthpc_threads_info.lock);
 
         thread->barrier = &barrier;
         for (int j = 0; j < thread->nr; j++)
@@ -155,7 +155,7 @@ static __mthpc_init void mthpc_thread_init(void)
 {
     mthpc_init_feature();
     mthpc_threads_info.nr = 0;
-    pthread_mutex_init(&mthpc_threads_info.lock, NULL);
+    spin_lock_init(&mthpc_threads_info.lock);
     mthpc_list_init(&mthpc_threads_info.head);
     mthpc_init_ok();
 }
@@ -163,6 +163,6 @@ static __mthpc_init void mthpc_thread_init(void)
 static __mthpc_exit void mthpc_thread_exit(void)
 {
     mthpc_exit_feature();
-    pthread_mutex_destroy(&mthpc_threads_info.lock);
+    spin_lock_destroy(&mthpc_threads_info.lock);
     mthpc_exit_ok();
 }

@@ -1,8 +1,7 @@
 #ifndef __MTHPC_RCU_H__
 #define __MTHPC_RCU_H__
 
-#include <pthread.h>
-
+#include <mthpc/spinlock.h>
 #include <mthpc/debug.h>
 #include <mthpc/util.h>
 
@@ -35,7 +34,7 @@ struct mthpc_rcu_node {
 } __mthpc_aligned__;
 
 struct mthpc_rcu_data {
-    pthread_mutex_t lock;
+    spinlock_t lock;
     struct mthpc_rcu_node *head;
     unsigned int type;
     unsigned long gp_seq;

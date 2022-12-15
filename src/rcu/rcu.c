@@ -1,8 +1,8 @@
-#include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
 #include <mthpc/rcu.h>
+#include <mthpc/spinlock.h>
 #include <mthpc/debug.h>
 #include <mthpc/util.h>
 
@@ -24,7 +24,7 @@ static struct mthpc_rcu_data mthpc_rcu_data;
  */
 struct mthpc_rcu_meta {
     struct mthpc_rcu_data *head;
-    pthread_mutex_t lock;
+    spinlock_t lock;
 };
 static struct mthpc_rcu_meta mthpc_rcu_meta;
 
@@ -35,7 +35,7 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 
     smp_mb();
 
-    pthread_mutex_lock(&data->lock);
+    spin_lock(&data->lock);
 
     curr_gp = data->gp_seq;
     for (node = data->head; node; node = node->next) {
@@ -54,7 +54,7 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
             mthpc_cmb();
     }
 
-    pthread_mutex_unlock(&data->lock);
+    spin_unlock(&data->lock);
 
     smp_mb();
 }
@@ -67,13 +67,13 @@ void mthpc_synchronize_rcu(void)
 void mthpc_synchronize_rcu_all(void)
 {
     struct mthpc_rcu_data *data;
-    pthread_mutex_lock(&mthpc_rcu_meta.lock);
+    spin_lock(&mthpc_rcu_meta.lock);
     data = mthpc_rcu_meta.head;
     while (data) {
         mthpc_synchronize_rcu_internal(data);
         data = data->next;
     }
-    pthread_mutex_unlock(&mthpc_rcu_meta.lock);
+    spin_unlock(&mthpc_rcu_meta.lock);
 }
 
 /* init/exit function */
@@ -96,10 +96,10 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
     node->next = NULL;
     node->data = data;
 
-    pthread_mutex_lock(&data->lock);
+    spin_lock(&data->lock);
     while (*indirect) {
         if ((*indirect)->id == id) {
-            pthread_mutex_unlock(&data->lock);
+            spin_unlock(&data->lock);
             free(node);
             MTHPC_WARN_ON(1, "already existed (%6u)", id);
             *rev = *indirect;
@@ -108,7 +108,7 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
         indirect = &(*indirect)->next;
     }
     *indirect = node;
-    pthread_mutex_unlock(&data->lock);
+    spin_unlock(&data->lock);
 
     *rev = node;
 }
@@ -119,20 +119,20 @@ void mthpc_rcu_del(struct mthpc_rcu_data *data, unsigned int id,
     struct mthpc_rcu_node **indirect = &data->head;
     struct mthpc_rcu_node *target;
 
-    pthread_mutex_lock(&data->lock);
+    spin_lock(&data->lock);
     while (*indirect) {
         if ((*indirect)->id == id) {
             MTHPC_WARN_ON(node && *indirect != node,
                           "not the same node(%p, %p)", *indirect, node);
             target = *indirect;
             *indirect = (*indirect)->next;
-            pthread_mutex_unlock(&data->lock);
+            spin_unlock(&data->lock);
             free(target);
             return;
         }
         indirect = &(*indirect)->next;
     }
-    pthread_mutex_unlock(&data->lock);
+    spin_unlock(&data->lock);
 
     MTHPC_WARN_ON(1, "target node(id=%u) not found", id);
 }
@@ -158,19 +158,19 @@ void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type)
     data->head = NULL;
     data->type = type;
     data->gp_seq = 1;
-    pthread_mutex_init(&data->lock, NULL);
+    spin_lock_init(&data->lock);
 
-    pthread_mutex_lock(&mthpc_rcu_meta.lock);
+    spin_lock(&mthpc_rcu_meta.lock);
     data->next = mthpc_rcu_meta.head;
     mthpc_rcu_meta.head = data;
-    pthread_mutex_unlock(&mthpc_rcu_meta.lock);
+    spin_unlock(&mthpc_rcu_meta.lock);
 }
 
 static void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
 {
     struct mthpc_rcu_node *node, *tmp;
 
-    pthread_mutex_lock(&data->lock);
+    spin_lock(&data->lock);
     node = data->head;
     while (node) {
         tmp = node->next;
@@ -178,8 +178,8 @@ static void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
         node = tmp;
     }
     data->head = NULL;
-    pthread_mutex_unlock(&data->lock);
-    pthread_mutex_destroy(&data->lock);
+    spin_unlock(&data->lock);
+    spin_lock_destroy(&data->lock);
 }
 
 /* Provide the API to let the other feature can create their own rcu data. */
@@ -188,7 +188,7 @@ static void __mthpc_init mthpc_rcu_init(void)
 {
     mthpc_init_feature();
     mthpc_rcu_meta.head = NULL;
-    pthread_mutex_init(&mthpc_rcu_meta.lock, NULL);
+    spin_lock_init(&mthpc_rcu_meta.lock);
     mthpc_rcu_data_init(&mthpc_rcu_data, MTHPC_RCU_USR);
     mthpc_init_ok();
 }
@@ -198,6 +198,6 @@ static void __mthpc_exit mthpc_rcu_exit(void)
     mthpc_exit_feature();
     mthpc_synchronize_rcu_all();
     mthpc_rcu_data_exit(&mthpc_rcu_data);
-    pthread_mutex_destroy(&mthpc_rcu_meta.lock);
+    spin_lock_destroy(&mthpc_rcu_meta.lock);
     mthpc_exit_ok();
 }

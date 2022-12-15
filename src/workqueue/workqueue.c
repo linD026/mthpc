@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
-#include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <errno.h>
 
 #include <mthpc/workqueue.h>
+#include <mthpc/spinlock.h>
 #include <mthpc/util.h>
 #include <mthpc/debug.h>
 #include <mthpc/print.h> /* for dump work */
@@ -25,7 +25,7 @@
 struct mthpc_workqueue {
     /* pool uses active to notify the wq should be finished or not. */
     unsigned int __actived_cpu;
-    pthread_mutex_t lock;
+    spinlock_t lock;
     pthread_t tid;
     /* the number of work in queue */
     unsigned int count;
@@ -42,7 +42,7 @@ struct mthpc_workpool {
     /* Use atomic ops to access count even it's protected by lock. */
     unsigned int count;
 
-    pthread_mutex_t lock;
+    spinlock_t lock;
 } __mthpc_aligned__;
 static struct mthpc_workpool mthpc_workpool;
 static struct mthpc_workpool mthpc_thread_wp;
@@ -112,7 +112,7 @@ static struct mthpc_workqueue *mthpc_alloc_workqueue(void)
         return NULL;
 
     wq->count = 0;
-    pthread_mutex_init(&wq->lock, NULL);
+    spin_lock_init(&wq->lock);
     mthpc_list_init(&wq->head);
     mthpc_list_init(&wq->node);
     mthpc_wq_mkactive(wq);
@@ -140,17 +140,17 @@ static void *mthpc_worker_run(void *arg)
             sched_yield();
         }
 
-        pthread_mutex_lock(&wq->lock);
+        spin_lock(&wq->lock);
         if (mthpc_list_empty(&wq->head)) {
             progress += 4;
             MTHPC_WARN_ON(wq->count > 0, "list is empty but count=%u\n",
                           wq->count);
-            pthread_mutex_unlock(&wq->lock);
+            spin_unlock(&wq->lock);
         } else {
             work = container_of(wq->head.next, struct mthpc_work, node);
             mthpc_list_del(&work->node);
             wq->count--;
-            pthread_mutex_unlock(&wq->lock);
+            spin_unlock(&wq->lock);
 
             /* We shouldn't hold the lock when running work. */
             work->func(work);
@@ -192,9 +192,9 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
     {
         if (cpu == -1 || (cpu & MTHPC_WQ_CPU_MASK) == mthpc_wq_get_cpu(curr)) {
             wq = curr;
-            pthread_mutex_lock(&wq->lock);
+            spin_lock(&wq->lock);
             mthpc_workqueue_add_locked(wq, work);
-            pthread_mutex_unlock(&wq->lock);
+            spin_unlock(&wq->lock);
             break;
         }
     }
@@ -219,7 +219,7 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
     mthpc_workqueue_add_locked(prealloc, work);
 
     /* Slow path, step 2 - add to the pool */
-    pthread_mutex_lock(&wp->lock);
+    spin_lock(&wp->lock);
     /* Does others already created? check again */
     mthpc_list_for_each (pos, &wp->head) {
         struct mthpc_workqueue *tmp =
@@ -235,7 +235,7 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
     wq = prealloc;
     prealloc = NULL;
 unlock:
-    pthread_mutex_unlock(&wp->lock);
+    spin_unlock(&wp->lock);
     mthpc_works_handler(wq);
 
 out:
@@ -308,12 +308,12 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
 
         mthpc_list_init(&free_list);
 
-        pthread_mutex_lock(&wp->lock);
+        spin_lock(&wp->lock);
         mthpc_list_for_each_safe (curr, n, &wp->head) {
             struct mthpc_workqueue *wq =
                 container_of(curr, struct mthpc_workqueue, node);
 
-            pthread_mutex_lock(&wq->lock);
+            spin_lock(&wq->lock);
             /* We should waiting for the works in wq. */
             if (!wq->count) {
                 mthpc_list_del_rcu(&wq->node);
@@ -322,9 +322,9 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
                 mthpc_list_add(&wq->node, &free_list);
                 mthpc_wq_clear_active(wq);
             }
-            pthread_mutex_unlock(&wq->lock);
+            spin_unlock(&wq->lock);
         }
-        pthread_mutex_unlock(&wp->lock);
+        spin_unlock(&wp->lock);
 
         if (!mthpc_list_empty(&free_list)) {
             mthpc_list_for_each_safe (curr, n, &free_list) {
@@ -338,7 +338,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
                  */
                 MTHPC_WARN_ON(__atomic_load_n(&wq->count, __ATOMIC_RELAXED) > 0,
                               "freeing wq but still holding work(s)");
-                pthread_mutex_destroy(&wq->lock);
+                spin_lock_destroy(&wq->lock);
                 free(wq);
                 __atomic_fetch_add(&wp->count, -1, __ATOMIC_RELAXED);
             }
@@ -351,7 +351,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
 static void mthpc_workpool_init(struct mthpc_workpool *wp, const char *name)
 {
     wp->name = name;
-    pthread_mutex_init(&wp->lock, NULL);
+    spin_lock_init(&wp->lock);
     mthpc_list_init(&wp->head);
 }
 
@@ -359,7 +359,7 @@ static void mthpc_workpool_exit(struct mthpc_workpool *wp)
 {
     mthpc_synchronize_rcu();
     mthpc_workqueues_join(wp);
-    pthread_mutex_destroy(&wp->lock);
+    spin_lock_destroy(&wp->lock);
 }
 
 // create one thread handle join
