@@ -83,4 +83,16 @@
     (sizeof((void *[]){ 0, __VA_ARGS__ }) / sizeof(void *) - 1)
 #endif
 
+#ifndef ___PASTE
+#define ___PASTE(a, b) a##b
+#endif
+
+#ifndef __PASTE
+#define __PASTE(a, b) ___PASTE(a, b)
+#endif
+
+#ifndef __UNIQUE_ID
+#define __UNIQUE_ID(prefix) __PASTE(__PASTE(__UNIQUE_ID_, prefix), __LINE__)
+#endif
+
 #endif /* __MTHPC_COMMON_H__ */

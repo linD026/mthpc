@@ -24,6 +24,7 @@ enum mthpc_prio {
 
     /* priority 3 */
     mthpc_prio_workqueue,
+    mthpc_prio_scoped_lock, /* should hanppen after all of the locks. */
 
     mthpc_prio_nr,
 };

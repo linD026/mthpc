@@ -141,18 +141,30 @@ void mthpc_synchronize_rcu_all(void);
 
 * [rcu self-test](src/rcu/test.c)
 
+### Scoped lock
+
+```cpp
+#include <mthpc/scoped_lock.h>
+```
+
+#### APIs
+
+```cpp
+/* For lock_type, see following description. */
+void mthpc_scoped_lock(lock_type);
+```
+
+Scoped lock support following lock types:
+- `spin_lock`
+- `rcu_read_lock`
+
+#### Examples
+
+* [scoped lock self-test](src/scoped_lock/test.c)
+
 ---
 
 ## Future works
-
-### Basic
-
-- scoped lock
-
-### intermediate
-
-
-### Advanced
 
 - hash table
 - mlrcu
