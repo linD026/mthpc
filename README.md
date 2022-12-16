@@ -164,6 +164,18 @@ Scoped lock support following lock types:
 
 ---
 
+## Other features
+
+```cpp
+#include <mthpc/spinlock.h>
+#include <mthpc/util.h>
+#include <mthpc/list.h>
+#include <mthpc/debug.h>
+#include <mthpc/print.h>
+```
+
+---
+
 ## Future works
 
 - hash table

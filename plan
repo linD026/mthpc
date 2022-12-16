@@ -19,7 +19,11 @@ work(){
 
 simple rcu ---------------- v
 workqueue ----------------- v
+thread -------------------- v
+scoped_lock --------------- v
 
+RAII object
+taskflow
 mlrcu
 hazard pointer
 concurrent linked list
@@ -36,9 +40,6 @@ basic container - hash table
     => related: linked list, workqueue, simple rcu (async)
     - Safe object
         - refcount
-
-Advance - mlrcu, scoped_lock
-    - use hash table
 
 debug framework
     - print, macro
