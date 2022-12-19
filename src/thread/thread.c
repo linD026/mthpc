@@ -163,6 +163,9 @@ static __mthpc_init void mthpc_thread_init(void)
 static __mthpc_exit void mthpc_thread_exit(void)
 {
     mthpc_exit_feature();
+    // TODO: Fix the spinlock destroyed while other thread still holding lock
+    spin_lock(&mthpc_threads_info.lock);
+    spin_unlock(&mthpc_threads_info.lock);
     spin_lock_destroy(&mthpc_threads_info.lock);
     mthpc_exit_ok();
 }
