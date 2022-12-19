@@ -45,8 +45,8 @@ echo -e "$PRFX tsan options: $tsan_set"
 echo -e "$PRFX -----------------------------------------------------------"
 
 echo -e "$PRFX building library..."
-make -C $DIR clean quit=1
-make -C $DIR debug=1 quit=1
+make -C $DIR clean quiet=1 --no-print-directory
+make -C $DIR debug=1 quiet=1 --no-print-directory
 mv $DIR/$LIB .
 
 echo -e "$PRFX compile program..."
@@ -59,4 +59,4 @@ echo -e "$PRFX execution end"
 echo -e "$PRFX cleanup..."
 rm -f test libmthpc.so
 rm -rf test.dSYM
-make -C $DIR clean quit=1
+make -C $DIR clean quiet=1 --no-print-directory

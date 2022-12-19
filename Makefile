@@ -51,7 +51,7 @@ endif
 
 BUILD_DIR=mthpc
 
-ifeq ($(quit),1)
+ifeq ($(quiet),1)
 
 MTHPC_CC=@$(CC)
 MTHPC_LD=@$(LD)

@@ -60,12 +60,14 @@ mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
 static __always_inline void __allow_unused
 mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 {
-    unsigned long gp_seq =
-        __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE);
+    unsigned long gp_seq = 0;
 
     MTHPC_WARN_ON(!node, "rcu node == NULL");
-    MTHPC_WARN_ON((node->gp_seq != gp_seq && node->gp_seq != gp_seq + 1),
-                  "unexpected out of gp(%lu,%lu)", node->gp_seq, gp_seq);
+    MTHPC_WARN_ON(
+        (gp_seq = __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE)) &&
+            (node->gp_seq != gp_seq && node->gp_seq != gp_seq + 1),
+        "unexpected out of gp(%lu,%lu or %lu)", node->gp_seq, gp_seq,
+        gp_seq + 1);
     mthpc_cmb();
     __atomic_fetch_add(&node->count, -1, __ATOMIC_RELEASE);
     __atomic_store_n(&node->gp_seq, 0, __ATOMIC_RELEASE);
