@@ -27,9 +27,9 @@ compile="gcc -o test $file $LIB $CFLAGS"
 
 function exec_prog {
     if [ "$tsan_set" = "nope" ]; then
-        ./test
+        LD_LIBRARY_PATH=. ./test
     else
-        TSAN_OPTIONS="$tsan_set" ./test
+        TSAN_OPTIONS="$tsan_set" LD_LIBRARY_PATH=. ./test
     fi
 }
 

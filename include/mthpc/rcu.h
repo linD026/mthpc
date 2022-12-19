@@ -66,7 +66,7 @@ mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
                   "unexpected out of gp");
     mthpc_cmb();
     __atomic_fetch_add(&node->count, -1, __ATOMIC_RELEASE);
-    __atomic_store_n(&node->gp_seq, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&node->gp_seq, 0, __ATOMIC_RELEASE);
 }
 
 static __always_inline void mthpc_rcu_read_lock(void)
