@@ -5,7 +5,7 @@
 #TSAN_SET="force_seq_cst_atomics=1"
 TSAN_SET="nope"
 
-bash ../test-setup.sh -d \
+bash ../test-setup.sh -d -s \
                       -f "safe ptr" \
                       -t $TSAN_SET \
                       -i test.c

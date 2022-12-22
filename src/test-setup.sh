@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-while getopts "f:i:t:d" flag
+while getopts "f:i:t:ds" flag
 do
     case "${flag}" in
         f) feature=${OPTARG};;
         i) file=${OPTARG};;
         t) tsan_set=${OPTARG};;
         d) debug="1";;
+        s) sparse="1";;
     esac
 done
 
@@ -21,9 +22,15 @@ else
 CFLAGS="-g -rdynamic -pthread -I$INCLUDE"
 fi
 
+if [ "$sparse" = "1" ]; then
+CC="cgcc"
+else
+CC="gcc"
+fi
+
 LIB="libmthpc.so"
 
-compile="gcc -o test $file $LIB $CFLAGS"
+compile="$CC -o test $file $LIB $CFLAGS"
 
 function exec_prog {
     if [ "$tsan_set" = "nope" ]; then

@@ -87,6 +87,6 @@ static inline void mthpc_safe_cleanup(struct mthpc_safe_cleanup_info *sci)
     MTHPC_DECLARE_SAFE_PTR(type, name, mthpc_safe_alloc(type, dtor));
 
 #define mthpc_borrow(safe_data) \
-    ({ (typeof(safe_data) __mthpc_force __mthpc_borrowed) safe_data; })
+    ({ (typeof(*safe_data) __mthpc_force __mthpc_borrowed *) safe_data; })
 
 #endif /* __MTHPC_SAFE_PTR_H__ */

@@ -1,4 +1,4 @@
-#include <stdio.h>
+//#include <stdio.h>
 
 #include <mthpc/safe_ptr.h>
 #include <mthpc/util.h>
