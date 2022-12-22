@@ -154,6 +154,32 @@ Scoped lock support following lock types:
 
 * [scoped lock self-test](../src/scoped_lock/test.c)
 
+### Safe Protocal
+
+```cpp
+#include <mthpc/safe_proto.h>
+```
+
+RAII type of object.
+
+#### Declaration
+
+```cpp
+MTHPC_DECLARE_SAFE_PTR(type, name, safe_data);
+MTHPC_DECLARE_SAFE_DATA(name, type, dtor);
+```
+
+#### APIs
+
+```cpp
+void mthpc_safe_get(type *safe_data);
+void mthpc_safe_put(type *safe_data);
+```
+
+#### Examples
+
+* [safe protocal self-test](../src/safe_prto/test.c)
+
 ---
 
 ## Other features

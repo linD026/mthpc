@@ -23,6 +23,7 @@ SRC+=src/rcu/rcu.c
 SRC+=src/workqueue/workqueue.c
 SRC+=src/thread/thread.c
 SRC+=src/scoped_lock/scoped_lock.c
+SRC+=src/safe_ptr/safe_ptr.c
 #SRC+=src/mlrcu/mlrcu.c
 
 OBJ:=$(SRC:.c=.o)

@@ -18,6 +18,7 @@ enum mthpc_prio {
     /* priority 1 - independent */
     mthpc_prio_rcu,
     mthpc_prio_centralized_barrier,
+    mthpc_prio_safe_ptr,
 
     /* priority 2 */
     mthpc_prio_thread, /* thread will use workqueue, so initialize first */
