@@ -154,10 +154,10 @@ Scoped lock support following lock types:
 
 * [scoped lock self-test](../src/scoped_lock/test.c)
 
-### Safe Protocal
+### Safe pointer
 
 ```cpp
-#include <mthpc/safe_proto.h>
+#include <mthpc/safe_ptr.h>
 ```
 
 RAII type of object.
@@ -178,7 +178,7 @@ void mthpc_safe_put(type *safe_data);
 
 #### Examples
 
-* [safe protocal self-test](../src/safe_prto/test.c)
+* [safe pointer self-test](../src/safe_ptr/test.c)
 
 ---
 
