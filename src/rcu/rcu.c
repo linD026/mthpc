@@ -28,9 +28,25 @@ struct mthpc_rcu_meta {
 };
 static struct mthpc_rcu_meta mthpc_rcu_meta;
 
-void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
+static void mthpc_wait_for_readers(struct mthpc_rcu_data *data,
+                                   unsigned long gp_seq)
 {
     struct mthpc_rcu_node *node;
+    unsigned long node_gp;
+
+    for (node = data->head; node; node = node->next) {
+        while (1) {
+            node_gp = READ_ONCE(node->gp_seq);
+            if (!(node_gp & MTHPC_GP_CTR_NEST_MASK))
+                break;
+            if (!((node_gp ^ gp_seq) & MTHPC_GP_CTR_PHASE))
+                break;
+        }
+    }
+}
+
+void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
+{
     unsigned long curr_gp;
 
     smp_mb();
@@ -38,21 +54,14 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
     spin_lock(&data->lock);
 
     curr_gp = data->gp_seq;
-    for (node = data->head; node; node = node->next) {
-        while (READ_ONCE(node->gp_seq) &&
-               READ_ONCE(node->gp_seq) <= data->gp_seq &&
-               READ_ONCE(node->count))
-            mthpc_cmb();
-    }
 
-    curr_gp = __atomic_fetch_add(&data->gp_seq, 1, __ATOMIC_RELEASE);
+    mthpc_wait_for_readers(data, curr_gp);
+
+    smp_mb();
+    WRITE_ONCE(data->gp_seq, data->gp_seq ^ MTHPC_GP_CTR_PHASE);
     smp_mb();
 
-    for (node = data->head; node; node = node->next) {
-        while (READ_ONCE(node->gp_seq) && READ_ONCE(node->gp_seq) <= curr_gp &&
-               READ_ONCE(node->count))
-            mthpc_cmb();
-    }
+    mthpc_wait_for_readers(data, curr_gp);
 
     spin_unlock(&data->lock);
 
@@ -91,7 +100,6 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
     }
 
     node->id = id;
-    node->count = 0;
     node->gp_seq = 0;
     node->next = NULL;
     node->data = data;
@@ -157,7 +165,7 @@ void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type)
 {
     data->head = NULL;
     data->type = type;
-    data->gp_seq = 1;
+    data->gp_seq = MTHPC_GP_COUNT;
     spin_lock_init(&data->lock);
 
     spin_lock(&mthpc_rcu_meta.lock);

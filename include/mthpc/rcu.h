@@ -27,7 +27,6 @@
 
 struct mthpc_rcu_node {
     unsigned long id;
-    unsigned long count;
     unsigned long gp_seq;
     struct mthpc_rcu_node *next;
     struct mthpc_rcu_data *data;
@@ -44,33 +43,41 @@ struct mthpc_rcu_data {
 
 extern __thread struct mthpc_rcu_node *mthpc_rcu_node_ptr;
 
+#define MTHPC_GP_COUNT (1UL << 0)
+#define MTHPC_GP_CTR_PHASE (1UL << (sizeof(unsigned long) << 2))
+#define MTHPC_GP_CTR_NEST_MASK (MTHPC_GP_CTR_PHASE - 1)
+
 void mthpc_rcu_thread_init(void);
 void mthpc_rcu_thread_exit(void);
 
 static __always_inline void __allow_unused
 mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
 {
+    unsigned long node_gp = 0;
+
     MTHPC_WARN_ON(!node, "rcu node == NULL");
     mthpc_cmb();
-    WRITE_ONCE(node->gp_seq,
-               __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE));
-    __atomic_fetch_add(&node->count, 1, __ATOMIC_RELAXED);
+
+    node_gp = READ_ONCE(node->gp_seq);
+    if (likely(!(node_gp & MTHPC_GP_CTR_NEST_MASK))) {
+        __atomic_store_n(&node->gp_seq, READ_ONCE(node->data->gp_seq),
+                         __ATOMIC_SEQ_CST);
+    } else
+        __atomic_fetch_add(&node->gp_seq, MTHPC_GP_COUNT, __ATOMIC_RELAXED);
 }
 
 static __always_inline void __allow_unused
 mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 {
-    unsigned long gp_seq = 0;
+    unsigned long node_gp = 0;
 
     MTHPC_WARN_ON(!node, "rcu node == NULL");
-    MTHPC_WARN_ON(
-        (gp_seq = __atomic_load_n(&node->data->gp_seq, __ATOMIC_ACQUIRE)) &&
-            (node->gp_seq != gp_seq && node->gp_seq != gp_seq + 1),
-        "unexpected out of gp(%lu,%lu or %lu)", node->gp_seq, gp_seq,
-        gp_seq + 1);
     mthpc_cmb();
-    __atomic_fetch_add(&node->count, -1, __ATOMIC_RELEASE);
-    __atomic_store_n(&node->gp_seq, 0, __ATOMIC_RELEASE);
+    node_gp = READ_ONCE(node->gp_seq);
+    if (likely((node_gp & MTHPC_GP_CTR_NEST_MASK) == MTHPC_GP_COUNT)) {
+        __atomic_fetch_add(&node->gp_seq, -MTHPC_GP_COUNT, __ATOMIC_SEQ_CST);
+    } else
+        __atomic_fetch_add(&node->gp_seq, -MTHPC_GP_COUNT, __ATOMIC_RELAXED);
 }
 
 static __always_inline void mthpc_rcu_read_lock(void)
