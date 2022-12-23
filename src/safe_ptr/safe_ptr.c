@@ -28,7 +28,7 @@ void __mthpc_safe_get(struct mthpc_safe_proto *sp)
 
 void __mthpc_safe_put(struct mthpc_safe_proto *sp)
 {
-    if (!__atomic_add_fetch(&sp->refcount, -1, __ATOMIC_ACQUIRE)) {
+    if (!__atomic_add_fetch(&sp->refcount, -1, __ATOMIC_SEQ_CST)) {
         if (sp->dtor)
             sp->dtor(mthpc_safe_data_of(sp));
         free(sp);
