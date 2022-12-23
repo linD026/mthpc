@@ -2,6 +2,13 @@
 
 mthpc supports the following features.
 
+- [Thread framework](#thread-framework)
+- [Workqueue](#workqueue)
+- [Centralized barrier](#centralized-barrier)
+- [Read-Copy Update](#read-copy-update-rcu)
+- [Scoped lock](#scoped-lock)
+- [Safe pointer](#safe-pointer)
+
 ### Thread framework
 
 ```cpp
@@ -48,7 +55,7 @@ void mthpc_thread_async_wait(&object /* group or thread object */);
 * [rcu self-test](../src/rcu/test.c)
 
 
-### workqueue
+### Workqueue
 
 ```cpp
 #include <mthpc/workqueue.h>
@@ -81,7 +88,7 @@ void mthpc_dump_work(struct mthpc_work *work)
 * [workqueue self-test](../src/workqueue/test.c)
 
 
-### centralized barrier
+### Centralized barrier
 
 ```cpp
 #include <mthpc/centralized_barrier.h>
@@ -161,17 +168,20 @@ Scoped lock support following lock types:
 ```
 
 RAII type of object.
+It is similar to the [`share_ptr`](https://en.cppreference.com/w/cpp/memory/shared_ptr) in C++.
 
 #### Declaration
 
 ```cpp
-MTHPC_DECLARE_SAFE_PTR(type, name, safe_data /* the object which protected by other safe_ptr */);
+/* the object which protected by other safe_ptr or from mthpc_unsafe_alloc() */
+MTHPC_DECLARE_SAFE_PTR(type, name, safe_data);
 MTHPC_MAKE_SAFE_PTR(name, type, dtor);
 ```
 
 #### APIs
 
 ```cpp
+void *mthpc_unsafe_alloc(type, dtor);
 void mthpc_safe_get(type *safe_ptr);
 void mthpc_safe_put(type *safe_ptr);
 ```

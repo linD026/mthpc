@@ -35,14 +35,14 @@ static inline struct mthpc_safe_proto *mthpc_safe_proto_of(void *safe_data)
                                        sizeof(struct mthpc_safe_proto));
 }
 
-void *__mthpc_safe_alloc(const char *name, size_t size, void (*dtor)(void *));
+void *__mthpc_unsafe_alloc(const char *name, size_t size, void (*dtor)(void *));
 
 void __mthpc_safe_get(struct mthpc_safe_proto *sp);
 
 void __mthpc_safe_put(struct mthpc_safe_proto *sp);
 
-#define mthpc_safe_alloc(data_name, dtor) \
-    __mthpc_safe_alloc(#data_name, sizeof(data_name), dtor)
+#define mthpc_unsafe_alloc(data_name, dtor) \
+    __mthpc_unsafe_alloc(#data_name, sizeof(data_name), dtor)
 
 #define mthpc_safe_get(safe_data) \
     __mthpc_safe_get(mthpc_safe_proto_of(safe_data))
@@ -72,7 +72,7 @@ static inline void mthpc_safe_cleanup(struct mthpc_safe_cleanup_info *sci)
 
 /* Declare the safe object and it will return pointer */
 #define MTHPC_MAKE_SAFE_PTR(type, name, dtor) \
-    MTHPC_DECLARE_SAFE_PTR(type, name, mthpc_safe_alloc(type, dtor));
+    MTHPC_DECLARE_SAFE_PTR(type, name, mthpc_unsafe_alloc(type, dtor));
 
 struct mthpc_borrow_protected {
     struct mthpc_safe_proto *sp;

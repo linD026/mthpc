@@ -7,7 +7,7 @@
 #undef _MTHPC_FEATURE
 #define _MTHPC_FEATURE safe_ptr
 
-void *__mthpc_safe_alloc(const char *name, size_t size, void (*dtor)(void *))
+void *__mthpc_unsafe_alloc(const char *name, size_t size, void (*dtor)(void *))
 {
     struct mthpc_safe_proto *sp = NULL;
 
