@@ -36,8 +36,10 @@ static void mthpc_thread_wq_join(struct mthpc_work *work)
             mthpc_threads_info.nr--;
         }
     }
-    if (mthpc_threads_info.nr)
+    if (mthpc_threads_info.nr) {
+        spin_unlock(&mthpc_threads_info.lock);
         mthpc_thread_work_on(work);
+    }
     spin_unlock(&mthpc_threads_info.lock);
 }
 
@@ -141,9 +143,22 @@ void __mthpc_thread_async_wait(void *threads, unsigned int nr)
         MTHPC_BUG_ON(!(thread->type & MTHPC_THREAD_ASYNC_TYPE),
                      "non-async thread oject wait");
 
+        /*
+         * Remove the node since async wait may finish in workqueue_exit().
+         * At the time, the thread (might be the stack memory) could cause
+         * the segfault.
+         */
+        spin_lock(&mthpc_threads_info.lock);
+        mthpc_list_del(&thread->node);
+        mthpc_threads_info.nr--;
+        spin_unlock(&mthpc_threads_info.lock);
+
         for (int j = 0; j < thread->nr; j++)
-            while (READ_ONCE(thread->nr_exited) != thread->nr)
+            while (__atomic_load_n(&thread->nr_exited, __ATOMIC_ACQUIRE) !=
+                   thread->nr)
                 mthpc_cmb();
+        for (int i = 0; i < thread->nr; i++)
+            pthread_join(thread->thread[i], NULL);
     }
 
     smp_mb();

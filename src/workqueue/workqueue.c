@@ -188,8 +188,7 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
 
     /* fast path - find the existed first. */
     mthpc_rcu_read_lock();
-    mthpc_list_for_each_entry_rcu(curr, &wp->head, node)
-    {
+    mthpc_list_for_each_entry_rcu (curr, &wp->head, node) {
         if (cpu == -1 || (cpu & MTHPC_WQ_CPU_MASK) == mthpc_wq_get_cpu(curr)) {
             wq = curr;
             spin_lock(&wq->lock);

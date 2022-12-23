@@ -98,3 +98,4 @@ ForEachMacros:
   - 'mthpc_list_for_each'
   - 'mthpc_list_for_each_from'
   - 'mthpc_list_for_each_safe'
+  - 'mthpc_list_for_each_entry_rcu'

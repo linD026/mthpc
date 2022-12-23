@@ -30,7 +30,9 @@ static void test_get_and_put(void)
 
     mthpc_print("test get and put\n");
     dut->cnt = 0;
-    mthpc_thread_run(&get_and_put_work);
+    mthpc_thread_async_run(&get_and_put_work);
+    mthpc_safe_put(dut);
+    mthpc_thread_async_wait(&get_and_put_work);
 }
 
 static void borrow_to_here(mthpc_borrow_ptr(struct test) p)
