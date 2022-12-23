@@ -165,15 +165,28 @@ RAII type of object.
 #### Declaration
 
 ```cpp
-MTHPC_DECLARE_SAFE_PTR(type, name, safe_data);
-MTHPC_DECLARE_SAFE_DATA(name, type, dtor);
+MTHPC_DECLARE_SAFE_PTR(type, name, safe_data /* the object which protected by other safe_ptr */);
+MTHPC_MAKE_SAFE_PTR(name, type, dtor);
 ```
 
 #### APIs
 
 ```cpp
-void mthpc_safe_get(type *safe_data);
-void mthpc_safe_put(type *safe_data);
+void mthpc_safe_get(type *safe_ptr);
+void mthpc_safe_put(type *safe_ptr);
+```
+
+To pass the safe data to another function, use the borrow methods.
+
+```cpp
+function(mthpc_borrow_to(safe_ptr));
+
+void function(mthpc_borrow_ptr(type) borrow_ptr)
+{
+    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, borrow_ptr);
+
+    ...
+}
 ```
 
 #### Examples

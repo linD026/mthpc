@@ -19,9 +19,6 @@ struct mthpc_safe_proto {
     } while (0)
 
 /*
- *  WARP(pointer)
- *
- * borrowing
  * copy; reset refcount
  */
 
@@ -64,29 +61,33 @@ static inline void mthpc_safe_cleanup(struct mthpc_safe_cleanup_info *sci)
     __mthpc_safe_put(sci->sp);
 }
 
-#ifdef __CHECKER__
-#define __mthpc_borrowed \
-    __attribute__((noderef, address_space(__mthpc_borrowed)))
-#define __mthpc_force __attribute__((force))
-#else
-#define __mthpc_borrowed
-#define __mthpc_force
-#endif /* __CHECKER__ */
-
 #define MTHPC_DECLARE_SAFE_PTR(type, name, safe_data) \
     struct mthpc_safe_cleanup_info __sci_##name       \
         __attribute__((cleanup(mthpc_safe_cleanup))); \
-    type *name = (type __mthpc_force *)safe_data;     \
+    type *name = safe_data;                           \
     do {                                              \
         __sci_##name.sp = mthpc_safe_proto_of(name);  \
         mthpc_safe_get(name);                         \
     } while (0)
 
 /* Declare the safe object and it will return pointer */
-#define MTHPC_DECLARE_SAFE_DATA(type, name, dtor) \
+#define MTHPC_MAKE_SAFE_PTR(type, name, dtor) \
     MTHPC_DECLARE_SAFE_PTR(type, name, mthpc_safe_alloc(type, dtor));
 
-#define mthpc_borrow(safe_data) \
-    ({ (typeof(*safe_data) __mthpc_force __mthpc_borrowed *) safe_data; })
+struct mthpc_borrow_protected {
+    struct mthpc_safe_proto *sp;
+};
+
+#define mthpc_borrow_to(safe_data)                     \
+    ({                                                 \
+        struct mthpc_borrow_protected __m_b_p_t;       \
+        __m_b_p_t.sp = mthpc_safe_proto_of(safe_data); \
+        &__m_b_p_t;                                    \
+    })
+
+#define mthpc_borrow_ptr(type) struct mthpc_borrow_protected *
+
+#define MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, borrow_data) \
+    MTHPC_DECLARE_SAFE_PTR(type, name, mthpc_safe_data_of((borrow_data)->sp))
 
 #endif /* __MTHPC_SAFE_PTR_H__ */

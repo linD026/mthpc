@@ -33,20 +33,20 @@ static void test_get_and_put(void)
     mthpc_thread_run(&get_and_put_work);
 }
 
-static void borrow_to_here(struct test __mthpc_borrowed *unsafe_ptr)
+static void borrow_to_here(mthpc_borrow_ptr(struct test) p)
 {
-    MTHPC_DECLARE_SAFE_PTR(struct test, safe_ptr, unsafe_ptr);
+    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(struct test, safe_ptr, p);
 
     printf("cnt=%lu\n", READ_ONCE(safe_ptr->cnt));
 }
 
 static void test_borrow(void)
 {
-    MTHPC_DECLARE_SAFE_DATA(struct test, dut, test_dtor);
+    MTHPC_MAKE_SAFE_PTR(struct test, dut, test_dtor);
 
     mthpc_print("test borrow\n");
     dut->cnt = 0;
-    borrow_to_here(mthpc_borrow(dut));
+    borrow_to_here(mthpc_borrow_to(dut));
 }
 
 int main(void)
