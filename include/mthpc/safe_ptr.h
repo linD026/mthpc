@@ -37,9 +37,19 @@ static inline struct mthpc_safe_proto *mthpc_safe_proto_of(void *safe_data)
 
 void *__mthpc_unsafe_alloc(const char *name, size_t size, void (*dtor)(void *));
 
-void __mthpc_safe_get(struct mthpc_safe_proto *sp);
+static inline void __mthpc_safe_get(struct mthpc_safe_proto *sp)
+{
+    __atomic_fetch_add(&sp->refcount, 1, __ATOMIC_RELEASE);
+}
 
-void __mthpc_safe_put(struct mthpc_safe_proto *sp);
+static inline void __mthpc_safe_put(struct mthpc_safe_proto *sp)
+{
+    if (!__atomic_add_fetch(&sp->refcount, -1, __ATOMIC_SEQ_CST)) {
+        if (sp->dtor)
+            sp->dtor(mthpc_safe_data_of(sp));
+        free(sp);
+    }
+}
 
 #define mthpc_unsafe_alloc(data_name, dtor) \
     __mthpc_unsafe_alloc(#data_name, sizeof(data_name), dtor)
