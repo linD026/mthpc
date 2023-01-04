@@ -33,5 +33,5 @@ For the development, the mthpc library provides the Makefile paramter,
  `debug=1`, to verify the action in runtime.
 
 All the featues have the test program(s) in their own directory, for example,
-rcu feature hase `new_test.c` and `test.c` in `src/rcu/`. And, we can run the
+rcu feature has `new_test.c` and `test.c` in `src/rcu/`. And, we can run the
 test program(s) with the command, `bash script.sh`.

@@ -168,7 +168,7 @@ Scoped lock support following lock types:
 ```
 
 RAII type of object.
-It is similar to the [`share_ptr`](https://en.cppreference.com/w/cpp/memory/shared_ptr) in C++.
+It is similar to the [`shared_ptr`](https://en.cppreference.com/w/cpp/memory/shared_ptr) in C++.
 
 #### Declaration
 
