@@ -25,7 +25,9 @@ static void test_dtor(void *data)
 
 static void test_get_and_put(void)
 {
-    struct test *dut = mthpc_unsafe_alloc(struct test, test_dtor);
+    /* Or you can use MTHPC_MAKE_SAFE_PTR(type, name, dtor). */
+    MTHPC_DECLARE_SAFE_PTR(struct test, dut,
+                           mthpc_unsafe_alloc(struct test, test_dtor));
     MTHPC_DECLARE_THREAD(get_and_put_work, 10, NULL, get_and_put, dut);
 
     mthpc_print("test get and put\n");

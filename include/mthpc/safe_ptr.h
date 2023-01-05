@@ -42,13 +42,15 @@ static inline void __mthpc_safe_get(struct mthpc_safe_proto *sp)
     __atomic_fetch_add(&sp->refcount, 1, __ATOMIC_RELEASE);
 }
 
-static inline void __mthpc_safe_put(struct mthpc_safe_proto *sp)
+static inline int __mthpc_safe_put(struct mthpc_safe_proto *sp)
 {
-    if (!__atomic_add_fetch(&sp->refcount, -1, __ATOMIC_SEQ_CST)) {
+    int ret = __atomic_add_fetch(&sp->refcount, -1, __ATOMIC_SEQ_CST);
+    if (!ret) {
         if (sp->dtor)
             sp->dtor(mthpc_safe_data_of(sp));
         free(sp);
     }
+    return ret;
 }
 
 #define mthpc_unsafe_alloc(data_name, dtor) \
@@ -57,8 +59,12 @@ static inline void __mthpc_safe_put(struct mthpc_safe_proto *sp)
 #define mthpc_safe_get(safe_data) \
     __mthpc_safe_get(mthpc_safe_proto_of(safe_data))
 
-#define mthpc_safe_put(safe_data) \
-    __mthpc_safe_put(mthpc_safe_proto_of(safe_data))
+#define mthpc_safe_put(safe_data)                                       \
+    do {                                                                \
+        int __s_p_t = __mthpc_safe_put(mthpc_safe_proto_of(safe_data)); \
+        if (!__s_p_t)                                                   \
+            __sci_##safe_data.sp = NULL;                                \
+    } while (0)
 
 struct mthpc_safe_cleanup_info {
     struct mthpc_safe_proto *sp;
