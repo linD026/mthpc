@@ -1,7 +1,7 @@
 #include <mthpc/thread.h>
 #include <mthpc/print.h>
 
-static void thread_a(struct mthpc_thread *th)
+static void thread_a(struct mthpc_thread_group *th)
 {
     static int local_cnt = 0;
 
@@ -13,7 +13,7 @@ static void thread_a(struct mthpc_thread *th)
     return;
 }
 
-static void thread_b(struct mthpc_thread *th)
+static void thread_b(struct mthpc_thread_group *th)
 {
     static int local_cnt = 0;
 
@@ -25,9 +25,9 @@ static void thread_b(struct mthpc_thread *th)
 
 static int th_arg_a = 0;
 
-static MTHPC_DECLARE_THREAD(th_obj_a, 1, thread_a, NULL, &th_arg_a);
-static MTHPC_DECLARE_THREAD(th_obj_b, 1, thread_b, NULL, NULL);
-static MTHPC_DECLARE_THREADS(thg_obj, &th_obj_a, &th_obj_b);
+static MTHPC_DECLARE_THREAD_GROUP(th_obj_a, 1, thread_a, NULL, &th_arg_a);
+static MTHPC_DECLARE_THREAD_GROUP(th_obj_b, 1, thread_b, NULL, NULL);
+static MTHPC_DECLARE_THREAD_CLUSTER(thg_obj, &th_obj_a, &th_obj_b);
 
 int main(void)
 {

@@ -13,7 +13,7 @@
 static pthread_mutex_t lock;
 static int *data;
 
-void read_func(struct mthpc_thread *unused)
+void read_func(struct mthpc_thread_group *unused)
 {
     int *tmp, val;
 
@@ -28,7 +28,7 @@ void read_func(struct mthpc_thread *unused)
     return;
 }
 
-void write_init(struct mthpc_thread *th)
+void write_init(struct mthpc_thread_group *th)
 {
     int **arr;
 
@@ -43,7 +43,7 @@ void write_init(struct mthpc_thread *th)
     th->args = arr;
 }
 
-void write_func(struct mthpc_thread *th)
+void write_func(struct mthpc_thread_group *th)
 {
     int *old, *tmp, **arr = th->args;
 
@@ -61,12 +61,12 @@ void write_func(struct mthpc_thread *th)
     return;
 }
 
-static MTHPC_DECLARE_THREAD(reader, NR_READER, NULL, read_func, NULL);
-static MTHPC_DECLARE_THREAD(writer, 1, write_init, write_func, NULL);
+static MTHPC_DECLARE_THREAD_GROUP(reader, NR_READER, NULL, read_func, NULL);
+static MTHPC_DECLARE_THREAD_GROUP(writer, 1, write_init, write_func, NULL);
 
 int main(void)
 {
-    MTHPC_DECLARE_THREADS(threads, &reader, &writer);
+    MTHPC_DECLARE_THREAD_CLUSTER(threads, &reader, &writer);
 
     mthpc_rcu_read_lock();
     mthpc_rcu_read_unlock();

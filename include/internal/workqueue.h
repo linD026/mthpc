@@ -5,6 +5,6 @@ struct mthpc_work;
 
 /* Thread workqueue */
 
-int mthpc_thread_work_on(struct mthpc_work *work);
+int mthpc_queue_thread_work(struct mthpc_work *work);
 
 #endif /* __MTHPC_INTERNAL_WORKQUEUE_H__ */

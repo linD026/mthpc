@@ -17,19 +17,19 @@ mthpc supports the following features.
 
 #### Declaration
 
-Write your thread initialization and body functions with the following
-prototype. And, delcare the thread object with the `MTHPC_DECLARE_THREAD` macro.
+Write your thread initialization and body functions with the following prototype
+. And, delcare the thread group with the `MTHPC_DECLARE_THREAD_GROUP` macro.
 
 ```cpp
-void func(struct mthpc_thread *th);
-MTHPC_DECLARE_THREAD(name, number_of_thread, init_func, body_func, args);
+void func(struct mthpc_thread_group *th);
+MTHPC_DECLARE_THREAD_GROUP(name, number_of_thread, init_func, body_func, args);
 ```
 
-After that, with mutiple thread objects, you can also group those with the macro
-, `MTHPC_DECLARE_THREADS`.
+After that, with mutiple thread groups, you can also put it all together with
+the macro, `MTHPC_DECLARE_THREAD_CLUSTER`.
 
 ```cpp
-MTHPC_DECLARE_THREADS(group_name, &threadA, &threadB, ...);
+MTHPC_DECLARE_THREAD_CLUSTER(name, &groupA, &groupB, ...);
 ```
 
 Note that all the object declarations are static size, which means they
@@ -37,9 +37,10 @@ Note that all the object declarations are static size, which means they
 
 #### APIs
 
-Run the thread group with the blocking until all the threads finish.
-Before execute the body function, all of the threads will wait until
-all the initializations have been done.
+Run the thread group/cluster with the blocking until all the threads finished.
+Before executing the body function, all of the threads will wait until
+all the initializations have been done. But this kind of synchronization is
+thread group level.
 Moreover, to let the object become async (non-blocking, auto-join) you
 can use `_async_` function.
 

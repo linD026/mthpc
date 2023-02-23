@@ -23,7 +23,7 @@ static struct mthpc_threads_info mthpc_threads_info;
 
 static void mthpc_thread_wq_join(struct mthpc_work *work)
 {
-    struct mthpc_thread *thread;
+    struct mthpc_thread_group *thread;
     struct mthpc_list_head *n, *pos;
 
     spin_lock(&mthpc_threads_info.lock);
@@ -38,7 +38,8 @@ static void mthpc_thread_wq_join(struct mthpc_work *work)
     }
     if (mthpc_threads_info.nr) {
         spin_unlock(&mthpc_threads_info.lock);
-        mthpc_thread_work_on(work);
+        mthpc_queue_thread_work(work);
+        return;
     }
     spin_unlock(&mthpc_threads_info.lock);
 }
@@ -46,12 +47,12 @@ static void mthpc_thread_wq_join(struct mthpc_work *work)
 static MTHPC_DECLARE_WORK(mthpc_thread_work, mthpc_thread_wq_join, NULL);
 
 static __always_inline void
-mthpc_thread_async_cleanup(struct mthpc_thread *thread)
+mthpc_thread_async_cleanup(struct mthpc_thread_group *thread)
 {
     __atomic_fetch_add(&thread->nr_exited, 1, __ATOMIC_RELEASE);
 }
 
-static inline void __mthpc_thread_worker(struct mthpc_thread *thread)
+static inline void __mthpc_thread_worker(struct mthpc_thread_group *thread)
 {
     mthpc_rcu_thread_init();
     if (thread->init)
@@ -65,7 +66,7 @@ static inline void __mthpc_thread_worker(struct mthpc_thread *thread)
 
 static void *mthpc_thread_worker(void *arg)
 {
-    struct mthpc_thread *thread = arg;
+    struct mthpc_thread_group *thread = arg;
 
     __mthpc_thread_worker(thread);
     pthread_exit(NULL);
@@ -73,7 +74,7 @@ static void *mthpc_thread_worker(void *arg)
 
 static void *mthpc_thread_async_worker(void *arg)
 {
-    struct mthpc_thread *thread = arg;
+    struct mthpc_thread_group *thread = arg;
     __mthpc_thread_worker(thread);
     mthpc_thread_async_cleanup(thread);
     pthread_exit(NULL);
@@ -83,11 +84,11 @@ static void *mthpc_thread_async_worker(void *arg)
 
 void __mthpc_thread_run(void *threads, unsigned int nr)
 {
-    struct mthpc_thread **ths = (struct mthpc_thread **)threads;
+    struct mthpc_thread_group **ths = (struct mthpc_thread_group **)threads;
     struct mthpc_barrier barrier = MTHPC_BARRIER_INIT;
 
     for (int i = 0; i < nr; i++) {
-        struct mthpc_thread *thread = ths[i];
+        struct mthpc_thread_group *thread = ths[i];
 
         MTHPC_WARN_ON(thread->type & MTHPC_THREAD_ASYNC_TYPE,
                       "async thread rerun on sync");
@@ -99,7 +100,7 @@ void __mthpc_thread_run(void *threads, unsigned int nr)
     }
 
     for (int i = 0; i < nr; i++) {
-        struct mthpc_thread *thread = ths[i];
+        struct mthpc_thread_group *thread = ths[i];
 
         for (int j = 0; j < thread->nr; j++)
             pthread_join(thread->thread[j], NULL);
@@ -108,11 +109,12 @@ void __mthpc_thread_run(void *threads, unsigned int nr)
 
 void __mthpc_thread_async_run(void *threads, unsigned int nr)
 {
-    struct mthpc_thread **ths = (struct mthpc_thread **)threads;
-    struct mthpc_barrier barrier = MTHPC_BARRIER_INIT;
+    struct mthpc_thread_group **ths = (struct mthpc_thread_group **)threads;
+    // TODO: How can we handle the barrier resource within heap?
+    //struct mthpc_barrier barrier = MTHPC_BARRIER_INIT;
 
     for (int i = 0; i < nr; i++) {
-        struct mthpc_thread *thread = ths[i];
+        struct mthpc_thread_group *thread = ths[i];
 
         thread->type |= MTHPC_THREAD_ASYNC_TYPE;
 
@@ -122,23 +124,23 @@ void __mthpc_thread_async_run(void *threads, unsigned int nr)
         mthpc_threads_info.nr++;
         spin_unlock(&mthpc_threads_info.lock);
 
-        thread->barrier = &barrier;
+        //thread->barrier = &barrier;
         for (int j = 0; j < thread->nr; j++)
             pthread_create(&thread->thread[j], NULL, mthpc_thread_async_worker,
                            thread);
     }
 
-    mthpc_thread_work_on(&mthpc_thread_work);
+    mthpc_queue_thread_work(&mthpc_thread_work);
 }
 
 void __mthpc_thread_async_wait(void *threads, unsigned int nr)
 {
-    struct mthpc_thread **ths = (struct mthpc_thread **)threads;
+    struct mthpc_thread_group **ths = (struct mthpc_thread_group **)threads;
 
     smp_mb();
 
     for (int i = 0; i < nr; i++) {
-        struct mthpc_thread *thread = ths[i];
+        struct mthpc_thread_group *thread = ths[i];
 
         MTHPC_BUG_ON(!(thread->type & MTHPC_THREAD_ASYNC_TYPE),
                      "non-async thread oject wait");
