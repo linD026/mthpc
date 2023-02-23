@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 
 #include <mthpc/rcu.h>
 #include <mthpc/spinlock.h>
@@ -36,7 +37,7 @@ static void mthpc_wait_for_readers(struct mthpc_rcu_data *data,
 
     for (node = data->head; node; node = node->next) {
         while (1) {
-            node_gp = READ_ONCE(node->gp_seq);
+            node_gp = atomic_load_explicit(&node->gp_seq, memory_order_relaxed);
             if (!(node_gp & MTHPC_GP_CTR_NEST_MASK))
                 break;
             if (!((node_gp ^ gp_seq) & MTHPC_GP_CTR_PHASE))
@@ -53,12 +54,16 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 
     spin_lock(&data->lock);
 
-    curr_gp = data->gp_seq;
+    curr_gp = atomic_load_explicit(&data->gp_seq, memory_order_relaxed);
 
     mthpc_wait_for_readers(data, curr_gp);
 
     smp_mb();
-    WRITE_ONCE(data->gp_seq, data->gp_seq ^ MTHPC_GP_CTR_PHASE);
+    atomic_store_explicit(
+        &data->gp_seq,
+        atomic_load_explicit(&data->gp_seq, memory_order_relaxed) ^
+            MTHPC_GP_CTR_PHASE,
+        memory_order_relaxed);
     smp_mb();
 
     mthpc_wait_for_readers(data, curr_gp);
@@ -100,7 +105,7 @@ void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
     }
 
     node->id = id;
-    node->gp_seq = 0;
+    atomic_init(&node->gp_seq, 0);
     node->next = NULL;
     node->data = data;
 
@@ -165,7 +170,7 @@ void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type)
 {
     data->head = NULL;
     data->type = type;
-    data->gp_seq = MTHPC_GP_COUNT;
+    atomic_init(&data->gp_seq, MTHPC_GP_COUNT);
     spin_lock_init(&data->lock);
 
     spin_lock(&mthpc_rcu_meta.lock);

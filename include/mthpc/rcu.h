@@ -1,6 +1,8 @@
 #ifndef __MTHPC_RCU_H__
 #define __MTHPC_RCU_H__
 
+#include <stdatomic.h>
+
 #include <mthpc/spinlock.h>
 #include <mthpc/debug.h>
 #include <mthpc/util.h>
@@ -27,7 +29,7 @@
 
 struct mthpc_rcu_node {
     unsigned long id;
-    unsigned long gp_seq;
+    atomic_ulong gp_seq;
     struct mthpc_rcu_node *next;
     struct mthpc_rcu_data *data;
 } __mthpc_aligned__;
@@ -36,7 +38,7 @@ struct mthpc_rcu_data {
     spinlock_t lock;
     struct mthpc_rcu_node *head;
     unsigned int type;
-    unsigned long gp_seq;
+    atomic_ulong gp_seq;
 
     struct mthpc_rcu_data *next;
 };
@@ -58,12 +60,15 @@ mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
     MTHPC_WARN_ON(!node, "rcu node == NULL");
     mthpc_cmb();
 
-    node_gp = READ_ONCE(node->gp_seq);
+    node_gp = atomic_load_explicit(&node->gp_seq, memory_order_relaxed);
     if (likely(!(node_gp & MTHPC_GP_CTR_NEST_MASK))) {
-        __atomic_store_n(&node->gp_seq, READ_ONCE(node->data->gp_seq),
-                         __ATOMIC_SEQ_CST);
+        atomic_store_explicit(
+            &node->gp_seq,
+            atomic_load_explicit(&node->data->gp_seq, memory_order_relaxed),
+            memory_order_seq_cst);
     } else
-        __atomic_fetch_add(&node->gp_seq, MTHPC_GP_COUNT, __ATOMIC_RELAXED);
+        atomic_fetch_add_explicit(&node->gp_seq, MTHPC_GP_COUNT,
+                                  memory_order_relaxed);
 }
 
 static __always_inline void __allow_unused
@@ -73,11 +78,13 @@ mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 
     MTHPC_WARN_ON(!node, "rcu node == NULL");
     mthpc_cmb();
-    node_gp = READ_ONCE(node->gp_seq);
+    node_gp = atomic_load_explicit(&node->gp_seq, memory_order_relaxed);
     if (likely((node_gp & MTHPC_GP_CTR_NEST_MASK) == MTHPC_GP_COUNT)) {
-        __atomic_fetch_add(&node->gp_seq, -MTHPC_GP_COUNT, __ATOMIC_SEQ_CST);
+        atomic_fetch_add_explicit(&node->gp_seq, -MTHPC_GP_COUNT,
+                                  memory_order_seq_cst);
     } else
-        __atomic_fetch_add(&node->gp_seq, -MTHPC_GP_COUNT, __ATOMIC_RELAXED);
+        atomic_fetch_add_explicit(&node->gp_seq, -MTHPC_GP_COUNT,
+                                  memory_order_relaxed);
 }
 
 static __always_inline void mthpc_rcu_read_lock(void)
@@ -94,10 +101,17 @@ static __always_inline void mthpc_rcu_read_unlock(void)
 
 void mthpc_synchronize_rcu(void);
 
-#define mthpc_rcu_replace_pointer(p, new) \
-    ({ __atomic_exchange_n(&(p), (new), __ATOMIC_RELEASE); })
+#define mthpc_rcu_replace_pointer(p, new)                                 \
+    ({                                                                    \
+        atomic_exchange_explicit((volatile _Atomic typeof(p) *)&p, (new), \
+                                 memory_order_release);                   \
+    })
 
-#define mthpc_rcu_dereference(p) ({ __atomic_load_n(&(p), __ATOMIC_CONSUME); })
+#define mthpc_rcu_dereference(p)                               \
+    ({                                                         \
+        atomic_load_explicit((volatile _Atomic typeof(p) *)&p, \
+                             memory_order_consume);            \
+    })
 
 void mthpc_synchronize_rcu_all(void);
 
