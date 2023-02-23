@@ -11,10 +11,11 @@
 #define mthpc_list_entry_rcu(ptr, type, member) \
     container_of(READ_ONCE(ptr), type, member)
 
-#define mthpc_list_for_each_entry_rcu(pos, head, member)                 \
-    for (pos = mthpc_list_entry_rcu((head)->next, typeof(*pos), member); \
-         &pos->member != (head);                                         \
-         pos = mthpc_list_entry_rcu(pos->member.next, typeof(*pos), member))
+#define mthpc_list_for_each_entry_rcu(pos, head, member)                     \
+    for (pos = mthpc_list_entry_rcu((head)->next, __typeof__(*pos), member); \
+         &pos->member != (head);                                             \
+         pos =                                                               \
+             mthpc_list_entry_rcu(pos->member.next, __typeof__(*pos), member))
 
 static inline void __mthpc_list_add_rcu(struct mthpc_list_head *new,
                                         struct mthpc_list_head *prev,

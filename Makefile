@@ -9,6 +9,7 @@ CFLAGS+=-Wall
 CFLAGS+=-O1
 CFLAGS+=-pthread
 CFLAGS+=-fPIC
+CFLAGS+=-std=c11
 
 DEBUG_FLAGS=
 

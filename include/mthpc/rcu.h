@@ -101,16 +101,16 @@ static __always_inline void mthpc_rcu_read_unlock(void)
 
 void mthpc_synchronize_rcu(void);
 
-#define mthpc_rcu_replace_pointer(p, new)                                 \
-    ({                                                                    \
-        atomic_exchange_explicit((volatile _Atomic typeof(p) *)&p, (new), \
-                                 memory_order_release);                   \
+#define mthpc_rcu_replace_pointer(p, new)                                     \
+    ({                                                                        \
+        atomic_exchange_explicit((volatile _Atomic __typeof__(p) *)&p, (new), \
+                                 memory_order_release);                       \
     })
 
-#define mthpc_rcu_dereference(p)                               \
-    ({                                                         \
-        atomic_load_explicit((volatile _Atomic typeof(p) *)&p, \
-                             memory_order_consume);            \
+#define mthpc_rcu_dereference(p)                                   \
+    ({                                                             \
+        atomic_load_explicit((volatile _Atomic __typeof__(p) *)&p, \
+                             memory_order_consume);                \
     })
 
 void mthpc_synchronize_rcu_all(void);

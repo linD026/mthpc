@@ -1,11 +1,12 @@
+#include <stdint.h>
+#include <stdatomic.h>
+
 #include <mthpc/scoped_lock.h>
 #include <mthpc/spinlock.h>
 #include <mthpc/rcu.h>
 #include <mthpc/util.h>
 #include <mthpc/debug.h>
 #include <mthpc/list.h>
-
-#include <stdatomic.h>
 
 #include <internal/feature.h>
 #undef _MTHPC_FEATURE

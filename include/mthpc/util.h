@@ -9,7 +9,7 @@
 #define MTHPC_COHERENCE_SIZE 128
 #define __mthpc_aligned__ __attribute__((aligned(MTHPC_COHERENCE_SIZE)))
 
-#define mthpc_cmb() asm volatile("" : : : "memory")
+#define mthpc_cmb() __asm__ __volatile__("" : : : "memory")
 
 #ifndef likely
 #define likely(x) __builtin_expect(!!(x), 1)
@@ -20,10 +20,10 @@
 #endif
 
 #ifndef container_of
-#define container_of(ptr, type, member)                    \
-    ({                                                     \
-        const typeof(((type *)0)->member) *__mptr = (ptr); \
-        (type *)((char *)__mptr - offsetof(type, member)); \
+#define container_of(ptr, type, member)                        \
+    __extension__({                                            \
+        const __typeof__(((type *)0)->member) *__mptr = (ptr); \
+        (type *)((char *)__mptr - offsetof(type, member));     \
     })
 #endif
 
@@ -41,25 +41,25 @@
 
 #ifndef WRITE_ONCE
 #include <stdatomic.h>
-#define WRITE_ONCE(x, val)                                             \
-    do {                                                               \
-        mthpc_cmb();                                                   \
-        atomic_store_explicit((volatile _Atomic typeof(x) *)&x, (val), \
-                              memory_order_relaxed);                   \
-        mthpc_cmb();                                                   \
+#define WRITE_ONCE(x, val)                                                 \
+    do {                                                                   \
+        mthpc_cmb();                                                       \
+        atomic_store_explicit((volatile _Atomic __typeof__(x) *)&x, (val), \
+                              memory_order_relaxed);                       \
+        mthpc_cmb();                                                       \
     } while (0)
 #endif
 
 #ifndef READ_ONCE
 #include <stdatomic.h>
-#define READ_ONCE(x)                                                  \
-    ({                                                                \
-        typeof(x) ___x;                                               \
-        mthpc_cmb();                                                  \
-        ___x = atomic_load_explicit((volatile _Atomic typeof(x) *)&x, \
-                                    memory_order_consume);            \
-        mthpc_cmb();                                                  \
-        ___x;                                                         \
+#define READ_ONCE(x)                                                      \
+    ({                                                                    \
+        __typeof__(x) ___x;                                               \
+        mthpc_cmb();                                                      \
+        ___x = atomic_load_explicit((volatile _Atomic __typeof__(x) *)&x, \
+                                    memory_order_consume);                \
+        mthpc_cmb();                                                      \
+        ___x;                                                             \
     })
 #endif
 
