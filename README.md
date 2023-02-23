@@ -3,7 +3,7 @@
 mthpc is parallelism and concurrency library for C language. It targets to
 improve the parallel and concurrent part of userspace C. mtphc provides the
 thread framework, asynchronous worker (deferred work), synchronous mechanisms,
-and some concurrent data structures. mthpc is based on [GCC builtin atomic operation](https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html)
+and some concurrent data structures. mthpc is based on [C11 Atomics](https://en.cppreference.com/w/c/thread)
 and [POSIX Threads](https://en.wikipedia.org/wiki/Pthreads).
 
 ## Build
