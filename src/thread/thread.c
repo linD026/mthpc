@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdatomic.h>
 
 #include <mthpc/thread.h>
 #include <mthpc/spinlock.h>
@@ -29,7 +30,8 @@ static void mthpc_thread_wq_join(struct mthpc_work *work)
     spin_lock(&mthpc_threads_info.lock);
     mthpc_list_for_each_safe (pos, n, &mthpc_threads_info.head) {
         thread = container_of(pos, struct mthpc_thread, node);
-        if (READ_ONCE(thread->nr_exited) == thread->nr) {
+        if (atomic_load_explicit(&thread->nr_exited, memory_order_relaxed) ==
+            thread->nr) {
             for (int i = 0; i < thread->nr; i++)
                 pthread_join(thread->thread[i], NULL);
             mthpc_list_del(&thread->node);
@@ -48,7 +50,7 @@ static MTHPC_DECLARE_WORK(mthpc_thread_work, mthpc_thread_wq_join, NULL);
 static __always_inline void
 mthpc_thread_async_cleanup(struct mthpc_thread *thread)
 {
-    __atomic_fetch_add(&thread->nr_exited, 1, __ATOMIC_RELEASE);
+    atomic_fetch_add_explicit(&thread->nr_exited, 1, memory_order_release);
 }
 
 static inline void __mthpc_thread_worker(struct mthpc_thread *thread)
@@ -154,8 +156,8 @@ void __mthpc_thread_async_wait(void *threads, unsigned int nr)
         spin_unlock(&mthpc_threads_info.lock);
 
         for (int j = 0; j < thread->nr; j++)
-            while (__atomic_load_n(&thread->nr_exited, __ATOMIC_ACQUIRE) !=
-                   thread->nr)
+            while (atomic_load_explicit(&thread->nr_exited,
+                                        memory_order_acquire) != thread->nr)
                 mthpc_cmb();
         for (int i = 0; i < thread->nr; i++)
             pthread_join(thread->thread[i], NULL);

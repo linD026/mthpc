@@ -1,6 +1,7 @@
 #ifndef __MTHPC_THREAD_H__
 #define __MTHPC_THREAD_H__
 
+#include <stdatomic.h>
 #include <pthread.h>
 
 #include <mthpc/list.h>
@@ -20,7 +21,7 @@ struct mthpc_thread {
     void *args;
     struct mthpc_barrier *barrier;
     struct mthpc_list_head node;
-    unsigned int nr_exited;
+    atomic_uint nr_exited;
     pthread_t thread[];
 };
 
@@ -35,7 +36,7 @@ struct mthpc_thread {
         void *args;                                           \
         struct mthpc_barrier *barrier;                        \
         struct mthpc_list_head node;                          \
-        unsigned int nr_exited;                               \
+        atomic_uint nr_exited;                                \
         pthread_t thread[_nr];                                \
     } _name = {                                               \
         .type = MTHPC_THREAD_TYPE,                            \
