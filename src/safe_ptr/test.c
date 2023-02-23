@@ -1,4 +1,4 @@
-//#include <stdio.h>
+#include <stdatomic.h>
 
 #include <mthpc/safe_ptr.h>
 #include <mthpc/util.h>
@@ -8,15 +8,16 @@
 #include <stdatomic.h>
 
 struct test {
-    unsigned long cnt;
+    atomic_ulong cnt;
 };
 
 static void get_and_put(struct mthpc_thread *th)
 {
     MTHPC_DECLARE_SAFE_PTR(struct test, safe_ptr, th->args);
 
-    __atomic_fetch_add(&safe_ptr->cnt, 1, __ATOMIC_SEQ_CST);
-    printf("cnt=%lu\n", READ_ONCE(safe_ptr->cnt));
+    atomic_fetch_add_explicit(&safe_ptr->cnt, 1, memory_order_seq_cst);
+    printf("cnt=%lu\n",
+           atomic_load_explicit(&safe_ptr->cnt, memory_order_relaxed));
 }
 
 static void test_dtor(void *data)
@@ -44,7 +45,8 @@ static void borrow_to_here(mthpc_borrow_ptr(struct test) p)
 {
     MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(struct test, safe_ptr, p);
 
-    printf("cnt=%lu\n", READ_ONCE(safe_ptr->cnt));
+    printf("cnt=%lu\n",
+           atomic_load_explicit(&safe_ptr->cnt, memory_order_relaxed));
 }
 
 static void test_borrow(void)
