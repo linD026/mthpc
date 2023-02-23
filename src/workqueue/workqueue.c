@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <stdatomic.h>
 
 #include <mthpc/workqueue.h>
 #include <mthpc/spinlock.h>
@@ -24,11 +25,11 @@
 
 struct mthpc_workqueue {
     /* pool uses active to notify the wq should be finished or not. */
-    unsigned int __actived_cpu;
+    atomic_uint __actived_cpu;
     spinlock_t lock;
     pthread_t tid;
     /* the number of work in queue */
-    unsigned int count;
+    atomic_uint count;
     /* workqueue (work) linked list */
     struct mthpc_list_head head;
     /* workpool linked list */
@@ -40,7 +41,7 @@ struct mthpc_workpool {
     const char *name;
     struct mthpc_list_head head;
     /* Use atomic ops to access count even it's protected by lock. */
-    unsigned int count;
+    atomic_uint count;
 
     spinlock_t lock;
 } __mthpc_aligned__;
@@ -51,8 +52,9 @@ static struct mthpc_workpool mthpc_thread_wp;
 static __always_inline int mthpc_wq_get_cpu(struct mthpc_workqueue *wq)
 {
 #ifdef __linux__
-    return (int)(__atomic_load_n(&wq->__actived_cpu, __ATOMIC_RELAXED) &
-                 MTHPC_WQ_CPU_MASK);
+    return (
+        int)(atomic_load_explicit(&wq->__actived_cpu, memory_order_relaxed) &
+             MTHPC_WQ_CPU_MASK);
 #else
     return 0;
 #endif
@@ -64,7 +66,8 @@ static __always_inline void mthpc_wq_set_cpu(struct mthpc_workqueue *wq,
 #ifdef __linux__
     unsigned int masked_cpuid = ~MTHPC_WQ_CPU_MASK | (unsigned int)cpu;
 
-    __atomic_and_fetch(&wq->__actived_cpu, masked_cpuid, __ATOMIC_RELAXED);
+    atomic_fetch_and_explicit(&wq->__actived_cpu, masked_cpuid,
+                              memory_order_relaxed);
 #else
 #endif
 }
@@ -88,21 +91,22 @@ static __always_inline bool mthpc_wq_active(struct mthpc_workqueue *wq)
 {
     unsigned int masked_active = 0;
 
-    masked_active = __atomic_load_n(&wq->__actived_cpu, __ATOMIC_ACQUIRE);
+    masked_active =
+        atomic_load_explicit(&wq->__actived_cpu, memory_order_acquire);
 
     return masked_active & MTHPC_WQ_ACTIVED_FLAG;
 }
 
 static __always_inline void mthpc_wq_mkactive(struct mthpc_workqueue *wq)
 {
-    __atomic_or_fetch(&wq->__actived_cpu, MTHPC_WQ_ACTIVED_FLAG,
-                      __ATOMIC_RELEASE);
+    atomic_fetch_or_explicit(&wq->__actived_cpu, MTHPC_WQ_ACTIVED_FLAG,
+                             memory_order_release);
 }
 
 static __always_inline void mthpc_wq_clear_active(struct mthpc_workqueue *wq)
 {
-    __atomic_and_fetch(&wq->__actived_cpu, ~MTHPC_WQ_ACTIVED_FLAG,
-                       __ATOMIC_RELEASE);
+    atomic_fetch_and_explicit(&wq->__actived_cpu, ~MTHPC_WQ_ACTIVED_FLAG,
+                              memory_order_release);
 }
 
 static struct mthpc_workqueue *mthpc_alloc_workqueue(void)
@@ -111,7 +115,7 @@ static struct mthpc_workqueue *mthpc_alloc_workqueue(void)
     if (!wq)
         return NULL;
 
-    wq->count = 0;
+    atomic_init(&wq->count, 0);
     spin_lock_init(&wq->lock);
     mthpc_list_init(&wq->head);
     mthpc_list_init(&wq->node);
@@ -143,13 +147,15 @@ static void *mthpc_worker_run(void *arg)
         spin_lock(&wq->lock);
         if (mthpc_list_empty(&wq->head)) {
             progress += 4;
-            MTHPC_WARN_ON(wq->count > 0, "list is empty but count=%u\n",
-                          wq->count);
+            MTHPC_WARN_ON(
+                atomic_load_explicit(&wq->count, memory_order_relaxed) > 0,
+                "list is empty but count=%u\n",
+                atomic_load_explicit(&wq->count, memory_order_relaxed));
             spin_unlock(&wq->lock);
         } else {
             work = container_of(wq->head.next, struct mthpc_work, node);
             mthpc_list_del(&work->node);
-            wq->count--;
+            atomic_fetch_add_explicit(&wq->count, -1, memory_order_relaxed);
             spin_unlock(&wq->lock);
 
             /* We shouldn't hold the lock when running work. */
@@ -173,7 +179,7 @@ static void inline mthpc_workqueue_add_locked(struct mthpc_workqueue *wq,
 {
     /* Prevent mthpc_workqueues_join() to delete the wq. */
     mthpc_list_add_tail_rcu(&work->node, &wq->head);
-    wq->count++;
+    atomic_fetch_add_explicit(&wq->count, 1, memory_order_relaxed);
     MTHPC_WARN_ON(!mthpc_wq_active(wq), "Add work to inactive wq");
     work->wq = wq;
 }
@@ -230,7 +236,7 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
     }
     /* No one created it, we can safetly add to the pool.*/
     mthpc_list_add_tail_rcu(&prealloc->node, &wp->head);
-    __atomic_fetch_add(&wp->count, 1, __ATOMIC_RELAXED);
+    atomic_fetch_add_explicit(&wp->count, 1, memory_order_relaxed);
     wq = prealloc;
     prealloc = NULL;
 unlock:
@@ -297,7 +303,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
     unsigned int progress = 0;
 
     while (1) {
-        if (!__atomic_load_n(&wp->count, __ATOMIC_RELAXED))
+        if (!atomic_load_explicit(&wp->count, memory_order_relaxed))
             break;
         if (progress >= 32) {
             progress = 0;
@@ -314,7 +320,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
 
             spin_lock(&wq->lock);
             /* We should waiting for the works in wq. */
-            if (!wq->count) {
+            if (!atomic_load_explicit(&wq->count, memory_order_relaxed)) {
                 mthpc_list_del_rcu(&wq->node);
                 // TODO: Could we avoid synchronize with hoding two locks?
                 mthpc_synchronize_rcu();
@@ -335,11 +341,12 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
                  * We don't have to hold lock anymore, however we
                  * should still make sure the read access is atomic ops.
                  */
-                MTHPC_WARN_ON(__atomic_load_n(&wq->count, __ATOMIC_RELAXED) > 0,
-                              "freeing wq but still holding work(s)");
+                MTHPC_WARN_ON(
+                    atomic_load_explicit(&wq->count, memory_order_relaxed) > 0,
+                    "freeing wq but still holding work(s)");
                 spin_lock_destroy(&wq->lock);
                 free(wq);
-                __atomic_fetch_add(&wp->count, -1, __ATOMIC_RELAXED);
+                atomic_fetch_add_explicit(&wp->count, -1, memory_order_relaxed);
             }
         } else
             progress += 7;
