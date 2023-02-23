@@ -11,7 +11,7 @@ struct test {
     atomic_ulong cnt;
 };
 
-static void get_and_put(struct mthpc_thread *th)
+static void get_and_put(struct mthpc_thread_group *th)
 {
     MTHPC_DECLARE_SAFE_PTR(struct test, safe_ptr, th->args);
 
@@ -32,7 +32,7 @@ static void test_get_and_put(void)
     /* Or you can use MTHPC_MAKE_SAFE_PTR(type, name, dtor). */
     MTHPC_DECLARE_SAFE_PTR(struct test, dut,
                            mthpc_unsafe_alloc(struct test, test_dtor));
-    MTHPC_DECLARE_THREAD(get_and_put_work, 10, NULL, get_and_put, dut);
+    MTHPC_DECLARE_THREAD_GROUP(get_and_put_work, 10, NULL, get_and_put, dut);
 
     mthpc_print("test get and put\n");
     dut->cnt = 0;

@@ -3,7 +3,7 @@
 
 static int cnt = 0;
 
-static void worker(struct mthpc_thread *th)
+static void worker(struct mthpc_thread_group *th)
 {
     {
         mthpc_scoped_lock(spin_lock);
@@ -11,7 +11,7 @@ static void worker(struct mthpc_thread *th)
     }
 }
 
-static MTHPC_DECLARE_THREAD(test_work, 10, NULL, worker, NULL);
+static MTHPC_DECLARE_THREAD_GROUP(test_work, 10, NULL, worker, NULL);
 
 int main(void)
 {

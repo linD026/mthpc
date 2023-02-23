@@ -265,7 +265,7 @@ static int __mthpc_schedule_work_on(struct mthpc_workpool *wp, int cpu,
 
 /* internal API */
 
-int mthpc_thread_work_on(struct mthpc_work *work)
+int mthpc_queue_thread_work(struct mthpc_work *work)
 {
     return __mthpc_schedule_work_on(&mthpc_thread_wp, -1, work);
 }
