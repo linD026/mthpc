@@ -3,9 +3,11 @@
 
 #include <mthpc/debug.h>
 
+#include <stdatomic.h>
+
 struct mthpc_safe_proto {
     const char *name;
-    unsigned long refcount;
+    atomic_ulong refcount;
     unsigned int type;
     void (*dtor)(void *safe_data);
 };
@@ -39,13 +41,14 @@ void *__mthpc_unsafe_alloc(const char *name, size_t size, void (*dtor)(void *));
 
 static inline void __mthpc_safe_get(struct mthpc_safe_proto *sp)
 {
-    __atomic_fetch_add(&sp->refcount, 1, __ATOMIC_RELEASE);
+    atomic_fetch_add_explicit(&sp->refcount, 1, memory_order_release);
 }
 
 static inline int __mthpc_safe_put(struct mthpc_safe_proto *sp)
 {
-    int ret = __atomic_add_fetch(&sp->refcount, -1, __ATOMIC_SEQ_CST);
-    if (!ret) {
+    int ret =
+        atomic_fetch_add_explicit(&sp->refcount, -1, memory_order_seq_cst);
+    if (ret - 1 == 0) {
         if (sp->dtor)
             sp->dtor(mthpc_safe_data_of(sp));
         free(sp);

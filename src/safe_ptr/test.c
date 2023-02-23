@@ -5,6 +5,8 @@
 #include <mthpc/thread.h>
 #include <mthpc/print.h>
 
+#include <stdatomic.h>
+
 struct test {
     unsigned long cnt;
 };
@@ -20,7 +22,8 @@ static void get_and_put(struct mthpc_thread *th)
 static void test_dtor(void *data)
 {
     printf("%s: dtor(refcount=%lu)\n", mthpc_safe_proto_of(data)->name,
-           READ_ONCE(mthpc_safe_proto_of(data)->refcount));
+           atomic_load_explicit(&mthpc_safe_proto_of(data)->refcount,
+                                memory_order_relaxed));
 }
 
 static void test_get_and_put(void)
