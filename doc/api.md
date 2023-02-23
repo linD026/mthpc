@@ -39,15 +39,15 @@ Note that all the object declarations are static size, which means they
 
 Run the thread group/cluster with the blocking until all the threads finished.
 Before executing the body function, all of the threads will wait until
-all the initializations have been done. But this kind of synchronization is
-thread group level.
+all the initializations have been done. This kind of synchronization is
+cluster-level.
 Moreover, to let the object become async (non-blocking, auto-join) you
 can use `_async_` function.
 
 ```cpp
-void mthpc_thread_run(&object /* group or thread object */);
-void mthpc_thread_async_run(&object /* group or thread object */);
-void mthpc_thread_async_wait(&object /* group or thread object */);
+void mthpc_thread_run(&threads /* group or cluster */);
+void mthpc_thread_async_run(&threads /* group or cluster */);
+void mthpc_thread_async_wait(&threads /* group or cluster */);
 ```
 
 #### Examples

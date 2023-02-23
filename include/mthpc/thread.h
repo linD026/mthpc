@@ -11,6 +11,8 @@
 #define MTHPC_THREAD_CLUSTER_TYPE 0x0002U
 #define MTHPC_THREAD_ASYNC_TYPE 0x0004U
 
+struct mthpc_barrier_object;
+
 /* Make sure all the members' offset are matched. */
 struct mthpc_thread_group {
     unsigned int type;
@@ -18,7 +20,7 @@ struct mthpc_thread_group {
     void (*init)(struct mthpc_thread_group *);
     void (*func)(struct mthpc_thread_group *);
     void *args;
-    struct mthpc_barrier *barrier;
+    struct mthpc_barrier_object *barrier_object;
     struct mthpc_list_head node;
     unsigned int nr_exited;
     pthread_t thread[];
@@ -33,9 +35,9 @@ struct mthpc_thread_group {
         void (*init)(struct mthpc_thread_group *);                  \
         void (*func)(struct mthpc_thread_group *);                  \
         void *args;                                                 \
-        struct mthpc_barrier *barrier;                              \
+        struct mthpc_barrier_object *barrier_object;                \
         struct mthpc_list_head node;                                \
-        unsigned int nr_exited;                               \
+        unsigned int nr_exited;                                     \
         pthread_t thread[_nr];                                      \
     } _name = {                                                     \
         .type = MTHPC_THREAD_GROUP_TYPE,                            \
@@ -44,7 +46,7 @@ struct mthpc_thread_group {
         .func = _func,                                              \
         .args = _args,                                              \
         .nr_exited = 0,                                             \
-        .barrier = NULL,                                            \
+        .barrier_object = NULL,                                     \
     }
 
 #define MTHPC_DECLARE_THREAD_CLUSTER(_name, ...)           \
