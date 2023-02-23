@@ -1,6 +1,8 @@
 #ifndef __MTHPC_SCOPED_LOCK_H__
 #define __MTHPC_SCOPED_LOCK_H__
 
+#include <stdatomic.h>
+
 #ifndef ___PASTE
 #define ___PASTE(a, b) a##b
 #endif
@@ -20,7 +22,7 @@
 typedef struct mthpc_scoped_lock {
     unsigned int type;
     unsigned int id;
-    void *node;
+    atomic_uintptr_t node;
 } mthpc_scopedlock_t;
 
 void __mthpc_scoped_lock(mthpc_scopedlock_t *sl, mthpc_scopedlock_t *cached);
@@ -29,7 +31,7 @@ void mthpc_scoped_unlock(mthpc_scopedlock_t *sl);
 static inline void __mthpc_get_cached_scoped_lock(mthpc_scopedlock_t *sl,
                                                   mthpc_scopedlock_t *cached)
 {
-    sl->node = __atomic_load_n(&cached->node, __ATOMIC_ACQUIRE);
+    sl->node = atomic_load_explicit(&cached->node, memory_order_acquire);
 }
 
 #define __mthpc_cached_scoped_lock(_sl, __type)                           \
