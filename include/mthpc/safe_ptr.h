@@ -1,9 +1,9 @@
 #ifndef __MTHPC_SAFE_PTR_H__
 #define __MTHPC_SAFE_PTR_H__
 
-#include <mthpc/debug.h>
-
 #include <stdatomic.h>
+
+#include <mthpc/debug.h>
 
 struct mthpc_safe_proto {
     const char *name;

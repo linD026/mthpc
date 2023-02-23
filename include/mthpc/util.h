@@ -2,7 +2,7 @@
 #define __MTHPC_COMMON_H__
 
 /*
- * common.h header helps us to reduce the words. It doesn't means that
+ * util.h header helps us to reduce the words. It doesn't means that
  * mthpc supports other compiler and thread library than gcc and pthread.
  */
 
@@ -40,22 +40,26 @@
 #endif
 
 #ifndef WRITE_ONCE
-#define WRITE_ONCE(x, val)                             \
-    do {                                               \
-        mthpc_cmb();                                   \
-        __atomic_store_n(&(x), val, __ATOMIC_RELAXED); \
-        mthpc_cmb();                                   \
+#include <stdatomic.h>
+#define WRITE_ONCE(x, val)                                             \
+    do {                                                               \
+        mthpc_cmb();                                                   \
+        atomic_store_explicit((volatile _Atomic typeof(x) *)&x, (val), \
+                              memory_order_relaxed);                   \
+        mthpc_cmb();                                                   \
     } while (0)
 #endif
 
 #ifndef READ_ONCE
-#define READ_ONCE(x)                                    \
-    ({                                                  \
-        typeof(x) ___x;                                 \
-        mthpc_cmb();                                    \
-        ___x = __atomic_load_n(&(x), __ATOMIC_CONSUME); \
-        mthpc_cmb();                                    \
-        ___x;                                           \
+#include <stdatomic.h>
+#define READ_ONCE(x)                                                  \
+    ({                                                                \
+        typeof(x) ___x;                                               \
+        mthpc_cmb();                                                  \
+        ___x = atomic_load_explicit((volatile _Atomic typeof(x) *)&x, \
+                                    memory_order_consume);            \
+        mthpc_cmb();                                                  \
+        ___x;                                                         \
     })
 #endif
 
