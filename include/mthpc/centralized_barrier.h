@@ -20,6 +20,13 @@ struct mthpc_barrier {
 #define MTHPC_DEFINE_BARRIER(name) \
     struct mthpc_barrier name = MTHPC_BARRIER_INIT
 
+static inline void mthpc_barrier_init(struct mthpc_barrier *b)
+{
+    b->flag = 0;
+    b->count = 0;
+    spin_lock_init(&b->lock);
+}
+
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n);
 
 #endif /* __MTHPC_CENTRALIZED_BARRIER_H__ */
