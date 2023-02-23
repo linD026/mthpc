@@ -1,11 +1,13 @@
 #ifndef __MTHPC_CENTRALIZED_BARRIER_H__
 #define __MTHPC_CENTRALIZED_BARRIER_H__
 
+#include <stdatomic.h>
+
 #include <mthpc/spinlock.h>
 #include <mthpc/util.h>
 
 struct mthpc_barrier {
-    int flag;
+    atomic_uint flag;
     int count;
     spinlock_t lock;
 } __mthpc_aligned__;

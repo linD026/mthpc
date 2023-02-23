@@ -1,3 +1,5 @@
+#include <stdatomic.h>
+
 #include <mthpc/centralized_barrier.h>
 #include <mthpc/spinlock.h>
 #include <mthpc/debug.h>
@@ -17,10 +19,12 @@ void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
     if (b->count == n) {
         b->count = 0;
         spin_unlock(&b->lock);
-        __atomic_store_n(&b->flag, mthpc_local_sense, __ATOMIC_RELEASE);
+        atomic_store_explicit(&b->flag, mthpc_local_sense,
+                              memory_order_release);
     } else {
         spin_unlock(&b->lock);
-        while (__atomic_load_n(&b->flag, __ATOMIC_ACQUIRE) != mthpc_local_sense)
+        while (atomic_load_explicit(&b->flag, memory_order_acquire) !=
+               mthpc_local_sense)
             ;
     }
 }
