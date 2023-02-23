@@ -31,15 +31,17 @@ void mthpc_scoped_unlock(mthpc_scopedlock_t *sl);
 static inline void __mthpc_get_cached_scoped_lock(mthpc_scopedlock_t *sl,
                                                   mthpc_scopedlock_t *cached)
 {
-    sl->node = atomic_load_explicit(&cached->node, memory_order_acquire);
+    atomic_store_explicit(
+        &sl->node, atomic_load_explicit(&cached->node, memory_order_acquire),
+        memory_order_relaxed);
 }
 
 #define __mthpc_cached_scoped_lock(_sl, __type)                           \
-    static mthpc_scopedlock_t _sl##_cached = { .node = NULL };            \
+    static mthpc_scopedlock_t _sl##_cached = { .node = 0 };               \
     mthpc_scopedlock_t _sl __attribute__((cleanup(mthpc_scoped_unlock))); \
     _sl.type = __type;                                                    \
     _sl.id = __LINE__;                                                    \
-    _sl.node = NULL;                                                      \
+    atomic_init(&_sl.node, 0);                                            \
     do {                                                                  \
         __mthpc_get_cached_scoped_lock(&_sl, &_sl##_cached);              \
         __mthpc_scoped_lock(&_sl, &_sl##_cached);                         \
