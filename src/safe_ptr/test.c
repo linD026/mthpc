@@ -54,7 +54,7 @@ static void test_borrow(void)
     MTHPC_MAKE_SAFE_PTR(struct test, dut, test_dtor);
 
     mthpc_print("test borrow\n");
-    dut->cnt = 0;
+    atomic_init(&dut->cnt, 0);
     borrow_to_here(mthpc_borrow_to(dut));
 }
 
