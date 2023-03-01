@@ -54,16 +54,12 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
 
     spin_lock(&data->lock);
 
-    curr_gp = atomic_load_explicit(&data->gp_seq, memory_order_relaxed);
+    curr_gp = data->gp_seq;
 
     mthpc_wait_for_readers(data, curr_gp);
 
     smp_mb();
-    atomic_store_explicit(
-        &data->gp_seq,
-        atomic_load_explicit(&data->gp_seq, memory_order_relaxed) ^
-            MTHPC_GP_CTR_PHASE,
-        memory_order_relaxed);
+    WRITE_ONCE(data->gp_seq, data->gp_seq ^ MTHPC_GP_CTR_PHASE);
     smp_mb();
 
     mthpc_wait_for_readers(data, curr_gp);
@@ -170,7 +166,7 @@ void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type)
 {
     data->head = NULL;
     data->type = type;
-    atomic_init(&data->gp_seq, MTHPC_GP_COUNT);
+    data->gp_seq = MTHPC_GP_COUNT;
     spin_lock_init(&data->lock);
 
     spin_lock(&mthpc_rcu_meta.lock);
