@@ -57,7 +57,7 @@ static void mthpc_thread_wq_join(struct mthpc_work *work)
     spin_lock(&mthpc_threads_info.lock);
     mthpc_list_for_each_safe (pos, n, &mthpc_threads_info.head) {
         group = container_of(pos, struct mthpc_thread_group, node);
-        if (atomic_load_explicit(&group->nr_exited, memory_order_relaxed) ==
+        if (atomic_load_explicit(&group->nr_exited, memory_order_consume) ==
             group->nr) {
             for (int i = 0; i < group->nr; i++)
                 pthread_join(group->thread[i], NULL);
@@ -91,7 +91,7 @@ static inline void __mthpc_thread_worker(struct mthpc_thread_group *group)
         mthpc_centralized_barrier(
             &group->barrier_object->barrier,
             atomic_load_explicit(&group->barrier_object->refcount,
-                                 memory_order_relaxed));
+                                 memory_order_consume));
     }
     if (group->func)
         group->func(group);

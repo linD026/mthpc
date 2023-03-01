@@ -60,11 +60,11 @@ mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
     MTHPC_WARN_ON(!node, "rcu node == NULL");
     mthpc_cmb();
 
-    node_gp = atomic_load_explicit(&node->gp_seq, memory_order_relaxed);
+    node_gp = atomic_load_explicit(&node->gp_seq, memory_order_consume);
     if (likely(!(node_gp & MTHPC_GP_CTR_NEST_MASK))) {
         atomic_store_explicit(
             &node->gp_seq,
-            atomic_load_explicit(&node->data->gp_seq, memory_order_relaxed),
+            atomic_load_explicit(&node->data->gp_seq, memory_order_consume),
             memory_order_seq_cst);
     } else
         atomic_fetch_add_explicit(&node->gp_seq, MTHPC_GP_COUNT,
@@ -78,7 +78,7 @@ mthpc_rcu_read_unlock_internal(struct mthpc_rcu_node *node)
 
     MTHPC_WARN_ON(!node, "rcu node == NULL");
     mthpc_cmb();
-    node_gp = atomic_load_explicit(&node->gp_seq, memory_order_relaxed);
+    node_gp = atomic_load_explicit(&node->gp_seq, memory_order_consume);
     if (likely((node_gp & MTHPC_GP_CTR_NEST_MASK) == MTHPC_GP_COUNT)) {
         atomic_fetch_add_explicit(&node->gp_seq, -MTHPC_GP_COUNT,
                                   memory_order_seq_cst);

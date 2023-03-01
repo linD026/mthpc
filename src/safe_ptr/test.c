@@ -17,14 +17,14 @@ static void get_and_put(struct mthpc_thread_group *th)
 
     atomic_fetch_add_explicit(&safe_ptr->cnt, 1, memory_order_seq_cst);
     printf("cnt=%lu\n",
-           atomic_load_explicit(&safe_ptr->cnt, memory_order_relaxed));
+           atomic_load_explicit(&safe_ptr->cnt, memory_order_consume));
 }
 
 static void test_dtor(void *data)
 {
     printf("%s: dtor(refcount=%lu)\n", mthpc_safe_proto_of(data)->name,
            atomic_load_explicit(&mthpc_safe_proto_of(data)->refcount,
-                                memory_order_relaxed));
+                                memory_order_consume));
 }
 
 static void test_get_and_put(void)
@@ -46,7 +46,7 @@ static void borrow_to_here(mthpc_borrow_ptr(struct test) p)
     MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(struct test, safe_ptr, p);
 
     printf("cnt=%lu\n",
-           atomic_load_explicit(&safe_ptr->cnt, memory_order_relaxed));
+           atomic_load_explicit(&safe_ptr->cnt, memory_order_consume));
 }
 
 static void test_borrow(void)

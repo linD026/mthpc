@@ -37,7 +37,7 @@ static void mthpc_wait_for_readers(struct mthpc_rcu_data *data,
 
     for (node = data->head; node; node = node->next) {
         while (1) {
-            node_gp = atomic_load_explicit(&node->gp_seq, memory_order_relaxed);
+            node_gp = atomic_load_explicit(&node->gp_seq, memory_order_consume);
             if (!(node_gp & MTHPC_GP_CTR_NEST_MASK))
                 break;
             if (!((node_gp ^ gp_seq) & MTHPC_GP_CTR_PHASE))
