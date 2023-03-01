@@ -38,7 +38,7 @@ struct mthpc_rcu_data {
     spinlock_t lock;
     struct mthpc_rcu_node *head;
     unsigned int type;
-    atomic_ulong gp_seq;
+    unsigned long gp_seq;
 
     struct mthpc_rcu_data *next;
 };
@@ -62,10 +62,8 @@ mthpc_rcu_read_lock_internal(struct mthpc_rcu_node *node)
 
     node_gp = atomic_load_explicit(&node->gp_seq, memory_order_consume);
     if (likely(!(node_gp & MTHPC_GP_CTR_NEST_MASK))) {
-        atomic_store_explicit(
-            &node->gp_seq,
-            atomic_load_explicit(&node->data->gp_seq, memory_order_consume),
-            memory_order_seq_cst);
+        atomic_store_explicit(&node->gp_seq, READ_ONCE(node->data->gp_seq),
+                              memory_order_seq_cst);
     } else
         atomic_fetch_add_explicit(&node->gp_seq, MTHPC_GP_COUNT,
                                   memory_order_relaxed);
