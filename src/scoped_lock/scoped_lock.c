@@ -60,7 +60,7 @@ static void mthpc_sl_lock_destroy(struct mthpc_sl_node *node)
 
 static void mthpc_insert_scoped_lock(struct mthpc_sl_data *sl_data,
                                      mthpc_scopedlock_t *sl,
-                                     mthpc_scopedlock_t *cached)
+                                     mthpc_cached_scopedlock_t *cached)
 {
     struct mthpc_list_head *pos;
     struct mthpc_sl_node *node = malloc(sizeof(struct mthpc_sl_node));
@@ -74,9 +74,8 @@ static void mthpc_insert_scoped_lock(struct mthpc_sl_data *sl_data,
     node->data = sl_data;
     node->id = sl->id;
     node->type = sl->type;
-    atomic_store_explicit(&sl->node, (uintptr_t)node, memory_order_relaxed);
-
     mthpc_sl_lock_init(node);
+    sl->node = node;
 
     spin_lock(&sl_data->lock);
     mthpc_list_for_each (pos, &sl_data->head) {
@@ -92,9 +91,9 @@ static void mthpc_insert_scoped_lock(struct mthpc_sl_data *sl_data,
                           (void *)atomic_load_explicit(&cached->node,
                                                        memory_order_relaxed),
                           tmp);
+            mthpc_sl_lock_destroy(node);
             free(node);
-            atomic_store_explicit(&sl->node, (uintptr_t)tmp,
-                                  memory_order_relaxed);
+            sl->node = tmp;
             goto unlock;
         }
     }
@@ -104,15 +103,15 @@ unlock:
     spin_unlock(&sl_data->lock);
 }
 
-void __mthpc_scoped_lock(mthpc_scopedlock_t *sl, mthpc_scopedlock_t *cached)
+void __mthpc_scoped_lock(mthpc_scopedlock_t *sl,
+                         mthpc_cached_scopedlock_t *cached)
 {
     struct mthpc_sl_node *node;
 
     if (!sl->node)
         mthpc_insert_scoped_lock(&mthpc_sl_data, sl, cached);
 
-    node = (struct mthpc_sl_node *)atomic_load_explicit(&sl->node,
-                                                        memory_order_relaxed);
+    node = sl->node;
 
     switch (sl->type & sl_type_mask) {
     case sl_spin_lock_type:
@@ -128,8 +127,7 @@ void __mthpc_scoped_lock(mthpc_scopedlock_t *sl, mthpc_scopedlock_t *cached)
 
 void mthpc_scoped_unlock(mthpc_scopedlock_t *sl)
 {
-    struct mthpc_sl_node *node = (struct mthpc_sl_node *)atomic_load_explicit(
-        &sl->node, memory_order_relaxed);
+    struct mthpc_sl_node *node = sl->node;
 
     switch (sl->type & sl_type_mask) {
     case sl_spin_lock_type:

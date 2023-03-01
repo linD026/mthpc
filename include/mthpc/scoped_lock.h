@@ -19,29 +19,39 @@
 #define sl_rcu_read_lock_type 0x0002
 #define sl_type_mask (sl_spin_lock_type | sl_rcu_read_lock_type)
 
+struct mthpc_sl_node;
+
+typedef struct mthpc_cached_scoped_lock {
+    unsigned int type;
+    unsigned int id;
+    /* struct mthpc_sl_node *node; */
+    atomic_uintptr_t node;
+} mthpc_cached_scopedlock_t;
+
 typedef struct mthpc_scoped_lock {
     unsigned int type;
     unsigned int id;
-    atomic_uintptr_t node;
+    struct mthpc_sl_node *node;
 } mthpc_scopedlock_t;
 
-void __mthpc_scoped_lock(mthpc_scopedlock_t *sl, mthpc_scopedlock_t *cached);
+void __mthpc_scoped_lock(mthpc_scopedlock_t *sl,
+                         mthpc_cached_scopedlock_t *cached);
 void mthpc_scoped_unlock(mthpc_scopedlock_t *sl);
 
-static inline void __mthpc_get_cached_scoped_lock(mthpc_scopedlock_t *sl,
-                                                  mthpc_scopedlock_t *cached)
+static inline void
+__mthpc_get_cached_scoped_lock(mthpc_scopedlock_t *sl,
+                               mthpc_cached_scopedlock_t *cached)
 {
-    atomic_store_explicit(
-        &sl->node, atomic_load_explicit(&cached->node, memory_order_acquire),
-        memory_order_relaxed);
+    sl->node = (struct mthpc_sl_node *)atomic_load_explicit(
+        &cached->node, memory_order_acquire);
 }
 
 #define __mthpc_cached_scoped_lock(_sl, __type)                           \
-    static mthpc_scopedlock_t _sl##_cached = { .node = 0 };               \
+    static mthpc_cached_scopedlock_t _sl##_cached = { .node = 0 };        \
     mthpc_scopedlock_t _sl __attribute__((cleanup(mthpc_scoped_unlock))); \
     _sl.type = __type;                                                    \
     _sl.id = __LINE__;                                                    \
-    atomic_init(&_sl.node, 0);                                            \
+    _sl.node = NULL;                                                      \
     do {                                                                  \
         __mthpc_get_cached_scoped_lock(&_sl, &_sl##_cached);              \
         __mthpc_scoped_lock(&_sl, &_sl##_cached);                         \
