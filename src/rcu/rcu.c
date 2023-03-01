@@ -38,9 +38,11 @@ static void mthpc_wait_for_readers(struct mthpc_rcu_data *data,
     for (node = data->head; node; node = node->next) {
         while (1) {
             node_gp = atomic_load_explicit(&node->gp_seq, memory_order_consume);
+            /* Check node is active or not. */
             if (!(node_gp & MTHPC_GP_CTR_NEST_MASK))
                 break;
-            if (!((node_gp ^ gp_seq) & MTHPC_GP_CTR_PHASE))
+            /* Check current gp_seq. */
+            if ((node_gp ^ gp_seq) & MTHPC_GP_CTR_PHASE)
                 break;
         }
     }
@@ -59,6 +61,7 @@ void mthpc_synchronize_rcu_internal(struct mthpc_rcu_data *data)
     mthpc_wait_for_readers(data, curr_gp);
 
     smp_mb();
+    /* Go to next gp. 0 -> 1; 1 -> 0 */
     WRITE_ONCE(data->gp_seq, data->gp_seq ^ MTHPC_GP_CTR_PHASE);
     smp_mb();
 
