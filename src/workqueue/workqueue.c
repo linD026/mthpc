@@ -29,7 +29,7 @@ struct mthpc_workqueue {
     spinlock_t lock;
     pthread_t tid;
     /* the number of work in queue */
-    atomic_uint count;
+    unsigned int count;
     /* workqueue (work) linked list */
     struct mthpc_list_head head;
     /* workpool linked list */
@@ -40,7 +40,11 @@ struct mthpc_workqueue {
 struct mthpc_workpool {
     const char *name;
     struct mthpc_list_head head;
-    /* Use atomic ops to access count even it's protected by lock. */
+    /*
+     * The fast path will access count without holding the lock.
+     * So, use atomic ops to access count even it's protected
+     * by lock.
+     */
     atomic_uint count;
 
     spinlock_t lock;
@@ -115,7 +119,7 @@ static struct mthpc_workqueue *mthpc_alloc_workqueue(void)
     if (!wq)
         return NULL;
 
-    atomic_init(&wq->count, 0);
+    wq->count = 0;
     spin_lock_init(&wq->lock);
     mthpc_list_init(&wq->head);
     mthpc_list_init(&wq->node);
@@ -147,15 +151,13 @@ static void *mthpc_worker_run(void *arg)
         spin_lock(&wq->lock);
         if (mthpc_list_empty(&wq->head)) {
             progress += 4;
-            MTHPC_WARN_ON(
-                atomic_load_explicit(&wq->count, memory_order_relaxed) > 0,
-                "list is empty but count=%u\n",
-                atomic_load_explicit(&wq->count, memory_order_relaxed));
+            MTHPC_WARN_ON(wq->count > 0, "list is empty but count=%u\n",
+                          wq->count);
             spin_unlock(&wq->lock);
         } else {
             work = container_of(wq->head.next, struct mthpc_work, node);
             mthpc_list_del(&work->node);
-            atomic_fetch_add_explicit(&wq->count, -1, memory_order_relaxed);
+            wq->count--;
             spin_unlock(&wq->lock);
 
             /* We shouldn't hold the lock when running work. */
@@ -179,7 +181,7 @@ static void inline mthpc_workqueue_add_locked(struct mthpc_workqueue *wq,
 {
     /* Prevent mthpc_workqueues_join() to delete the wq. */
     mthpc_list_add_tail_rcu(&work->node, &wq->head);
-    atomic_fetch_add_explicit(&wq->count, 1, memory_order_relaxed);
+    wq->count++;
     MTHPC_WARN_ON(!mthpc_wq_active(wq), "Add work to inactive wq");
     work->wq = wq;
 }
@@ -320,7 +322,7 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
 
             spin_lock(&wq->lock);
             /* We should waiting for the works in wq. */
-            if (!atomic_load_explicit(&wq->count, memory_order_relaxed)) {
+            if (!wq->count) {
                 mthpc_list_del_rcu(&wq->node);
                 // TODO: Could we avoid synchronize with hoding two locks?
                 mthpc_synchronize_rcu();
@@ -340,9 +342,12 @@ static void mthpc_workqueues_join(struct mthpc_workpool *wp)
                 /*
                  * We don't have to hold lock anymore, however we
                  * should still make sure the read access is atomic ops.
+                 * It's fine if the value is unstable.
                  */
                 MTHPC_WARN_ON(
-                    atomic_load_explicit(&wq->count, memory_order_relaxed) > 0,
+                    atomic_load_explicit(
+                        (volatile _Atomic __typeof__(wq->count) *)&wq->count,
+                        memory_order_relaxed) > 0,
                     "freeing wq but still holding work(s)");
                 spin_lock_destroy(&wq->lock);
                 free(wq);
