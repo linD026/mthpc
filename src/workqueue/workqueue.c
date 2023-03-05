@@ -135,8 +135,8 @@ static void *mthpc_worker_run(void *arg)
     struct mthpc_work *work;
     unsigned int progress = 0;
 
-    // Why we do the rcu init manually in rcu read lock will let
-    // mthpc_rcu_node_ptr sometimes become NULL but aleady add to list?
+    // Sometime, when we do the rcu init in rcu_read_lock() will let
+    // mthpc_rcu_node_ptr become NULL but aleady add to rcu list?
     mthpc_rcu_thread_init();
     mthpc_wq_run_on_cpu(wq);
 
@@ -217,7 +217,8 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
 #ifdef __linux__
         cpu = (sched_getcpu() + 1) & MTHPC_WQ_CPU_MASK;
 #else
-        cpu = 0;
+        cpu = atomic_load_explicit(&wp->count, memory_order_consume) &
+              MTHPC_WQ_CPU_MASK;
 #endif
     mthpc_wq_set_cpu(prealloc, cpu);
     prealloc->wp = wp;
@@ -227,12 +228,15 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
 
     /* Slow path, step 2 - add to the pool */
     spin_lock(&wp->lock);
-    /* Does others already created? check again */
+    /* Does anyone already create it? Check again */
     mthpc_list_for_each (pos, &wp->head) {
         struct mthpc_workqueue *tmp =
             container_of(pos, struct mthpc_workqueue, node);
         if (cpu == mthpc_wq_get_cpu(tmp)) {
             wq = tmp;
+            spin_lock(&wq->lock);
+            mthpc_workqueue_add_locked(wq, work);
+            spin_unlock(&wq->lock);
             goto unlock;
         }
     }
@@ -243,7 +247,11 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
     prealloc = NULL;
 unlock:
     spin_unlock(&wp->lock);
-    mthpc_works_handler(wq);
+    /*
+     * If we clear the prealloc, this means that we are going to create new wq.
+     */
+    if (!prealloc)
+        mthpc_works_handler(wq);
 
 out:
     if (prealloc)
@@ -364,13 +372,19 @@ static void mthpc_workpool_init(struct mthpc_workpool *wp, const char *name)
     wp->name = name;
     spin_lock_init(&wp->lock);
     mthpc_list_init(&wp->head);
+    atomic_init(&wp->count, 0);
 }
 
 static void mthpc_workpool_exit(struct mthpc_workpool *wp)
 {
+    unsigned int count;
+
     mthpc_synchronize_rcu();
     mthpc_workqueues_join(wp);
     spin_lock_destroy(&wp->lock);
+    count = atomic_load(&wp->count);
+    MTHPC_WARN_ON(count != 0, "%s workpool might still has workqueue(s)=%u",
+                  wp->name, count);
 }
 
 // create one thread handle join
