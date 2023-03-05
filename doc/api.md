@@ -99,7 +99,6 @@ void mthpc_dump_work(struct mthpc_work *work)
 
 ```cpp
 MTHPC_DEFINE_BARRIER(name);
-// or
 struct mthpc_barrier name = MTHPC_BARRIER_INIT;
 ```
 
@@ -109,6 +108,7 @@ Add the barrier to the location you want with the number of the thread will
 be blocked by this barrier.
 
 ```cpp
+void mthpc_barrier_init(struct mthpc_barrier *b);
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n);
 ```
 
@@ -176,13 +176,13 @@ It is similar to the [`shared_ptr`](https://en.cppreference.com/w/cpp/memory/sha
 ```cpp
 /* the object which protected by other safe_ptr or from mthpc_unsafe_alloc() */
 MTHPC_DECLARE_SAFE_PTR(type, name, safe_data);
-MTHPC_MAKE_SAFE_PTR(name, type, dtor);
+MTHPC_MAKE_SAFE_PTR(name, type, void (*dtor)(void *));
 ```
 
 #### APIs
 
 ```cpp
-void *mthpc_unsafe_alloc(type, dtor);
+void *mthpc_unsafe_alloc(type, void (*dtor)(void *));
 void mthpc_safe_get(type *safe_ptr);
 void mthpc_safe_put(type *safe_ptr);
 ```
