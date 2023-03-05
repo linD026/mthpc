@@ -7,10 +7,9 @@
 #include <mthpc/print.h>
 #include <mthpc/util.h>
 
-#define MTHPC_STACK_BUF_SIZE 32
-
 static __always_inline void mthpc_dump_stack(void)
 {
+#define MTHPC_STACK_BUF_SIZE 32
     char **stack_info;
     int nr = 0;
     void *buf[MTHPC_STACK_BUF_SIZE];
@@ -22,6 +21,7 @@ static __always_inline void mthpc_dump_stack(void)
     for (int i = 0; i < nr; i++)
         mthpc_print("  %s\n", stack_info[i]);
     mthpc_print("========== dump stack  end  ==========\n");
+#undef MTHPC_STACK_BUF_SIZE
 }
 
 #define MTHPC_BUG_ON(cond, fmt, ...)                                     \
