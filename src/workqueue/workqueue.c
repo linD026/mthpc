@@ -240,7 +240,7 @@ mthpc_get_workqueue(struct mthpc_workpool *wp, int cpu, struct mthpc_work *work)
             goto unlock;
         }
     }
-    /* No one created it, we can safetly add to the pool.*/
+    /* No one created it, we can safely add to the pool.*/
     mthpc_list_add_tail_rcu(&prealloc->node, &wp->head);
     atomic_fetch_add_explicit(&wp->count, 1, memory_order_relaxed);
     wq = prealloc;
