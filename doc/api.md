@@ -74,6 +74,7 @@ MTHPC_DECLARE_WORK(name, work_func, args);
 To queue the work, use the following functions.
 
 ```cpp
+MTHPC_INIT_WORK(struct mthpc_work *work, name, work_func, private);
 int mthpc_schedule_work_on(int cpu, struct mthpc_work *work);
 int mthpc_queue_work(struct mthpc_work *work);
 ```

@@ -14,6 +14,15 @@ struct mthpc_work {
     struct mthpc_workqueue *wq;
 };
 
+#define MTHPC_INIT_WORK(work, _name, _func, _private) \
+    do {                                              \
+        (work)->name = _name;                         \
+        (work)->func = _func;                         \
+        (work)->private = _private;                   \
+        (work)->padding = 0;                          \
+        (work)->wq = NULL;                            \
+    } while (0)
+
 #define MTHPC_DECLARE_WORK(_name, _func, _private) \
     struct mthpc_work _name = {                    \
         .name = #_name,                            \
