@@ -88,6 +88,7 @@ void mthpc_dump_work(struct mthpc_work *work)
 #### Examples
 
 * [workqueue self-test](../src/workqueue/test.c)
+* [Function-grained Task Control](https://github.com/linD026/Function-grained-Task-Control)
 
 
 ### Centralized barrier
