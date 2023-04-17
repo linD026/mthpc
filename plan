@@ -28,6 +28,7 @@ mlrcu
 hazard pointer
 concurrent linked list
 ** hash table
+    - https://www.kernel.org/doc/Documentation/RCU/rculist_nulls.rst
 receiver and sender
 softirq: signal (with the task) to workqueue thread?
 
