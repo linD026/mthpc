@@ -36,10 +36,6 @@
 #include "thread-id.h"
 #include "debug-yield.h"
 
-#ifdef USE_MTHPC_LIB
-#include "mthpc_rcu.h"
-#endif
-
 /* hardcoded number of CPUs */
 #define NR_CPUS 16384
 
@@ -47,6 +43,10 @@
 #define _LGPL_SOURCE
 #endif
 #include <urcu.h>
+
+#ifdef USE_MTHPC_LIB
+#include "mthpc_rcu.h"
+#endif
 
 static volatile int test_go, test_stop;
 

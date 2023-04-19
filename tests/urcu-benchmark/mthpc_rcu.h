@@ -14,7 +14,7 @@
 
 #ifdef rcu_dereference
 #undef rcu_dereference
-#define rcu_dereferencek mthpc_rcu_dereference
+#define rcu_dereference mthpc_rcu_dereference
 #endif /* rcu_dereference */
 
 #ifdef rcu_register_thread
@@ -29,7 +29,7 @@
 
 #ifdef rcu_xchg_pointer
 #undef rcu_xchg_pointer
-#define rcu_xchg_pointer mthpc_rcu_replace_pointer
+#define rcu_xchg_pointer(src, new) mthpc_rcu_replace_pointer((*src), new)
 #endif /* rcu_xchg_pointer */
 
 #ifdef synchronize_rcu
