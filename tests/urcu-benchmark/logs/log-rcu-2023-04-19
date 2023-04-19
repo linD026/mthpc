@@ -1,0 +1,12 @@
+$ make mthpc
+gcc -o test ../../libmthpc.so test_urcu.c -I../../include -DDYNAMIC_LINK_TEST -DUSE_MTHPC_LIB -lurcu
+$ make run
+./test 100 1 10
+SUMMARY ./test                    testdur   10 nr_readers 100 rdur      0 wdur      0 nr_writers   1 wdelay      0 nr_reads   3022981827 nr_writes           90 nr_ops   3022981917
+
+
+$ make urcu
+gcc -o test test_urcu.c -DDYNAMIC_LINK_TEST -lurcu
+$ make run
+./test 100 1 10
+SUMMARY ./test                    testdur   10 nr_readers 100 rdur      0 wdur      0 nr_writers   1 wdelay      0 nr_reads   2776301152 nr_writes           97 nr_ops   2776301249
