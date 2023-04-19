@@ -35,3 +35,20 @@ For the development, the mthpc library provides the Makefile paramter,
 All the featues have the test program(s) in their own directory, for example,
 rcu feature has `new_test.c` and `test.c` in `src/rcu/`. And, we can run the
 test program(s) with the command, `bash script.sh`.
+
+## Compare with [urcu](https://github.com/urcu/userspace-rcu)
+> Before running the benchmark, we need the userspace-rcu lib.
+
+```
+# Source: tests/urcu-benchmark/logs/log-test-urcu-timing-2023-04-19
+
+## urcu
+
+Time per read : 596.663 cycles
+Time per write : 6.25778e+07 cycles
+
+## mthpc
+
+Time per read : 569.977 cycles
+Time per write : 6.91447e+07 cycles
+```
