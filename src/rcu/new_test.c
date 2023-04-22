@@ -58,6 +58,7 @@ static atomic_uint grace_periods[GP_IDX_MAX];
 static void *reader_func(void *argv)
 {
     struct test *tmp;
+    unsigned int local_gp_idx;
     unsigned int old_prev_count;
 
     mthpc_rcu_thread_init();
@@ -68,23 +69,25 @@ static void *reader_func(void *argv)
 
     tmp = mthpc_rcu_dereference(dut);
 
-    if (tmp->count != atomic_load_explicit(&prev_count, memory_order_acquire)) {
-        old_prev_count = atomic_exchange_explicit(&prev_count, tmp->count,
-                                                  memory_order_release);
-        if (tmp->count != old_prev_count)
-            atomic_fetch_add_explicit(&gp_idx, 1, memory_order_release);
-        if (atomic_load_explicit(&gp_idx, memory_order_acquire) >
-            N_UPDATE_RUN) {
-            fprintf(stderr, "grace period index (%u) is over bound (%u).\n",
-                    atomic_load_explicit(&gp_idx, memory_order_acquire),
-                    N_UPDATE_RUN);
-            abort();
-        }
+    old_prev_count = atomic_load_explicit(&prev_count, memory_order_acquire);
+    if (old_prev_count < tmp->count) {
+        atomic_compare_exchange_strong(&prev_count, &old_prev_count,
+                                       tmp->count);
+    } else if (tmp->count < old_prev_count) {
+        fprintf(stderr,
+                "old count (%u) should not be larger than new one (%u).\n",
+                old_prev_count, tmp->count);
+        abort();
     }
 
-    atomic_fetch_add_explicit(
-        &grace_periods[atomic_load_explicit(&gp_idx, memory_order_acquire)], 1,
-        memory_order_relaxed);
+    local_gp_idx = atomic_load_explicit(&gp_idx, memory_order_acquire);
+    if (local_gp_idx > N_UPDATE_RUN) {
+        fprintf(stderr, "grace period index (%u) is over bound (%u).\n",
+                local_gp_idx, N_UPDATE_RUN);
+        abort();
+    }
+    atomic_fetch_add_explicit(&grace_periods[local_gp_idx], 1,
+                              memory_order_relaxed);
 
     mthpc_rcu_read_unlock();
 
@@ -105,6 +108,7 @@ static void *updater_func(void *argv)
         newval->count = i;
         oldp = mthpc_rcu_replace_pointer(dut, newval);
         mthpc_synchronize_rcu();
+        atomic_fetch_add_explicit(&gp_idx, 1, memory_order_release);
         free(oldp);
     }
 
@@ -141,8 +145,8 @@ int main(int argc, char *argv[])
 
     if (total != N_READERS)
         fprintf(stderr,
-                "The Sum of records in the array of grace period(s) (%u) is "
-                "not the same with number of reader(s) (%u)\n",
+                "The sum of records in the array of grace period(s) (%u)\n"
+                "is not the same with number of reader(s) (%u)\n",
                 total, N_READERS);
 
     return 0;
