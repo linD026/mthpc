@@ -39,7 +39,7 @@ test program(s) with the command, `bash script.sh`.
 ## Compare with [urcu](https://github.com/urcu/userspace-rcu)
 > Before running the benchmark, we need the userspace-rcu lib.
 
-We run 100 readers and single writer. And, the hardware is i7-8750H with 12 cores.
+We run 100 readers and single writer. And, the hardware is i7-8750H with 6 cores.
 
 ```
 # Source: tests/urcu-benchmark/logs/log-test-urcu-timing-2023-04-19
