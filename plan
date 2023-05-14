@@ -17,6 +17,23 @@ work(){
     self_work();
 }
 
+taskflow
+
+struct task {
+    void (*func)(void);
+    struct edge {
+        struct task **node;
+        int nr_node;
+        int size;
+        spinlock_t lock;
+    } in_edge, out_edge;
+};
+
+struct taskflow {
+    struct task *start;
+    int nr_task;
+};
+
 simple rcu ---------------- v
 workqueue ----------------- v
 thread -------------------- v
