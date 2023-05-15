@@ -4,11 +4,7 @@
 #include <mthpc/util.h>
 
 struct mthpc_task;
-
-struct mthpc_taskflow {
-    struct mthpc_task *start;
-    int nr_task;
-};
+struct mthpc_taskflow;
 
 void __mthpc_taskflow_precede(struct mthpc_task *task, struct mthpc_task *tasks,
                               int nr_task);

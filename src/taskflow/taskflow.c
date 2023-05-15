@@ -1,8 +1,8 @@
 #include <stdlib.h>
 
 #include <mthpc/taskflow.h>
-#include <mthpc/rcu.h>
-#include <mthpc/rculist.h>
+#include <mthpc/list.h>
+#include <mthpc/completion.h>
 #include <mthpc/workqueue.h>
 #include <mthpc/spinlock.h>
 #include <mthpc/debug.h>
@@ -16,16 +16,26 @@
 
 struct mthpc_task {
     struct mthpc_work work;
+    struct mthpc_taskflow *parent;
     void (*func)(void *);
-    struct mthpc_list_head list_head;
+    struct mthpc_list_head list_node;
+
+    unsigned long nr_internal;
     struct mthpc_list_head internal_list_head;
     struct mthpc_list_head internal_list_node;
+};
+struct mthpc_taskflow {
+    struct mthpc_list_head list_head;
+    int nr_task;
+    struct mthpc_completion completion;
 };
 
 static void mthpc_task_worker(struct mthpc_work *work)
 {
     struct mthpc_task *task = container_of(work, struct mthpc_task, work);
+    struct mthpc_taskflow *tf = task->parent;
     task->func(work->private);
+    mthpc_complete(&tf->completion);
 }
 
 /* user API */
@@ -46,8 +56,9 @@ struct mthpc_taskflow *mthpc_taskflow_create(void (*start)(void *arg),
         return NULL;
     }
 
-    tf->start = NULL;
+    mthpc_list_init(&tf->list_head);
     tf->nr_task = 0;
+    mthpc_completion_init(&tf->completion, 1);
 
     task = malloc(sizeof(struct mthpc_task));
     if (!task) {
@@ -57,12 +68,13 @@ struct mthpc_taskflow *mthpc_taskflow_create(void (*start)(void *arg),
     }
 
     MTHPC_INIT_WORK(&task->work, "taskflow start", mthpc_task_worker, arg);
+    task->parent = tf;
     task->func = start;
-    mthpc_list_init(&task->list_head);
+    mthpc_list_init(&task->list_node);
     mthpc_list_init(&task->internal_list_head);
     mthpc_list_init(&task->internal_list_node);
 
-    tf->start = task;
+    mthpc_list_add(&tf->list_head, &task->list_node);
 
     return tf;
 }
@@ -71,9 +83,18 @@ int mthpc_taskflow_await(struct mthpc_taskflow *tf)
 {
     struct mthpc_task *current = NULL;
 
-    mthpc_list_for_each_entry(current, struct mthpc_task, list_head)
-    {
+    mthpc_list_for_each_entry (current, &tf->list_head, list_node) {
+        struct mthpc_task *internal_current = NULL;
+
+        mthpc_completion_init(&tf->completion, current->nr_internal);
+
+        mthpc_list_for_each_entry (internal_current, &current->internal_list_head, list_node)
+            mthpc_queue_taskflow_work(&internal_current->work);
+
+        mthpc_wait_for_completion(&tf->completion);
     }
+
+    return 0;
 }
 
 static void __mthpc_init mthpc_taskflow_init(void)
