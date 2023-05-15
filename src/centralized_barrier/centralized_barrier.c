@@ -10,6 +10,13 @@
 
 static __thread int mthpc_local_sense = 0;
 
+void mthpc_centralized_barrier_nb(struct mthpc_barrier *b)
+{
+    spin_lock(&b->lock);
+    b->count++;
+    spin_unlock(&b->lock);
+}
+
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
 {
     mthpc_local_sense = !mthpc_local_sense;

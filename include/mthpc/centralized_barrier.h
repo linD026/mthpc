@@ -28,5 +28,6 @@ static inline void mthpc_barrier_init(struct mthpc_barrier *b)
 }
 
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n);
+void mthpc_centralized_barrier_nb(struct mthpc_barrier *b);
 
 #endif /* __MTHPC_CENTRALIZED_BARRIER_H__ */
