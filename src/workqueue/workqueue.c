@@ -51,6 +51,7 @@ struct mthpc_workpool {
 } __mthpc_aligned__;
 static struct mthpc_workpool mthpc_workpool;
 static struct mthpc_workpool mthpc_thread_wp;
+static struct mthpc_workpool mthpc_taskflow_wp;
 //static struct mthpc_workpool mthpc_rcu_wp;
 
 static __always_inline int mthpc_wq_get_cpu(struct mthpc_workqueue *wq)
@@ -280,6 +281,10 @@ int mthpc_queue_thread_work(struct mthpc_work *work)
     return __mthpc_schedule_work_on(&mthpc_thread_wp, -1, work);
 }
 
+int mthpc_queue_taskflow_work(struct mthpc_work *work)
+{
+    return __mthpc_schedule_work_on(&mthpc_taskflow_wp, -1, work);
+}
 /* user API */
 
 int mthpc_schedule_work_on(int cpu, struct mthpc_work *work)
@@ -393,6 +398,7 @@ static void __mthpc_init mthpc_workqueue_init(void)
     mthpc_init_feature();
     mthpc_workpool_init(&mthpc_workpool, "global");
     mthpc_workpool_init(&mthpc_thread_wp, "thread");
+    mthpc_workpool_init(&mthpc_taskflow_wp, "taskflow");
     //mthpc_workpool_init(&mthpc_rcu_wp, "rcu");
     /* Add new pool here. */
     mthpc_init_ok();
@@ -403,6 +409,7 @@ static void __mthpc_exit mthpc_workqueue_exit(void)
     mthpc_exit_feature();
     mthpc_workpool_exit(&mthpc_workpool);
     mthpc_workpool_exit(&mthpc_thread_wp);
+    mthpc_workpool_exit(&mthpc_taskflow_wp);
     //mthpc_workpool_exit(&mthpc_rcu_wp);
     /* Add new pool here. */
     mthpc_exit_ok();

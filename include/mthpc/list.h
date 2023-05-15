@@ -65,4 +65,19 @@ static inline void mthpc_list_del(struct mthpc_list_head *node)
     for (pos = (head)->next, n = pos->next; pos != (head); \
          pos = n, n = pos->next)
 
+#ifndef container_of
+#define container_of(ptr, type, member)                        \
+    __extension__({                                            \
+        const __typeof__(((type *)0)->member) *__mptr = (ptr); \
+        (type *)((char *)__mptr - offsetof(type, member));     \
+    })
+#endif
+
+#define mthpc_list_entry(ptr, type, member) container_of(ptr, type, member)
+
+#define mthpc_list_for_each_entry(pos, head, member)                     \
+    for (pos = mthpc_list_entry((head)->next, __typeof__(*pos), member); \
+         &pos->member != (head);                                         \
+         pos = mthpc_list_entry(pos->member.next, __typeof__(*pos), member))
+
 #endif /* __MTHPC_LIST_H__ */

@@ -34,6 +34,7 @@ void __mthpc_taskflow_succeed(struct mthpc_task *task, struct mthpc_task *tasks,
         __mthpc_taskflow_succeed(_task, __tf_s_tasks, __tf_s_nr_task);        \
     } while (0)
 
-struct mthpc_taskflow *mthpc_taskflow_create(void);
+struct mthpc_taskflow *mthpc_taskflow_create(void (*start)(void *arg),
+                                             void *arg);
 
 #endif /* __MTHPC_TASKFLOW_H__ */
