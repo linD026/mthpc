@@ -112,6 +112,27 @@ be blocked by this barrier.
 ```cpp
 void mthpc_barrier_init(struct mthpc_barrier *b);
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n);
+void mthpc_centralized_barrier_nb(struct mthpc_barrier *b);
+```
+
+### Wait for completion
+
+```cpp
+#include <mthpc/completion.h>
+```
+
+#### Declaration
+
+```cpp
+MTHPC_DECLARE_COMPLETION(name, completion);
+struct completion name = MTHPC_COMPLETION_INIT;
+```
+
+#### APIs
+
+```cpp
+void mthpc_complete(struct mthpc_completion *completion);
+void mthpc_wait_for_completion(struct mthpc_completion *completion);
 ```
 
 ###  Read-Copy Update (RCU)
