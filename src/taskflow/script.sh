@@ -6,6 +6,6 @@
 TSAN_SET="nope"
 
 bash ../test-setup.sh -d \
-                      -f "rcu" \
+                      -f "taskflow" \
                       -t $TSAN_SET \
-                      -i new_test.c
+                      -i draw_graphviz.c
