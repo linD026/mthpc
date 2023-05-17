@@ -37,4 +37,6 @@ struct mthpc_task *mthpc_task_create(struct mthpc_taskflow *tf,
 struct mthpc_task *mthpc_sub_task_create(struct mthpc_task *task,
                                          void (*func)(void *arg), void *arg);
 
+int mthpc_taskflow_await(struct mthpc_taskflow *tf);
+
 #endif /* __MTHPC_TASKFLOW_H__ */

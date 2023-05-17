@@ -205,7 +205,6 @@ void __mthpc_taskflow_succeed(struct mthpc_task *task, struct mthpc_task **news,
         mthpc_list_splice(&adding_list, &task->sub_task_list_head);
     }
 }
-}
 
 struct mthpc_task *mthpc_task_create(struct mthpc_taskflow *tf,
                                      void (*func)(void *arg), void *arg)
