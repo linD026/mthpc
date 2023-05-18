@@ -104,7 +104,7 @@ static void mthpc_taskflow_rlist_del(struct mthpc_list_head *list,
 {
     unsigned int i;
 
-    /* We reuse the task->sub_task_list_head */
+    /* reuse sub_task_list_head at first. */
     mthpc_list_init(list);
 
     for (i = 0; i < nr_task; i++) {
@@ -144,7 +144,9 @@ static void mthpc_taskflow_rlist_del(struct mthpc_list_head *list,
                 mthpc_list_del(&tmp->sub_task_list_head);
 
                 /* link to the main list */
-                mthpc_list_add_tail(&next_head->sub_task_list_head, list);
+                mthpc_list_replace_init(&tmp->list_node, &next_head->list_node);
+
+                mthpc_list_add(&tmp->sub_task_list_head, list);
             }
         }
         /* We set the task as sub-task type. */
@@ -152,13 +154,46 @@ static void mthpc_taskflow_rlist_del(struct mthpc_list_head *list,
     }
 }
 
+static __allow_unused void mthpc_dump_taskflow(struct mthpc_taskflow *tf)
+{
+    struct mthpc_task *current = NULL;
+
+    mthpc_print("=========[prev=%p|nr_task=%lu, list=%p|next=%p]============\n",
+                tf->list_head.prev, tf->nr_task, &tf->list_head,
+                tf->list_head.next);
+
+    mthpc_list_for_each_entry (current, &tf->list_head, list_node) {
+        struct mthpc_task *sub_task_current = NULL;
+
+        mthpc_pr_info("ID:%d, sub-task:%lu [prev=%p|node=%p|next=%p]\n",
+                      *(int *)current->work.private, current->nr_sub_task,
+                      current->list_node.prev, &current->list_node,
+                      current->list_node.next);
+
+        mthpc_list_for_each_entry (sub_task_current,
+                                   &current->sub_task_list_head,
+                                   sub_task_list_head) {
+            mthpc_pr_info("    ID:%d, sub-task:%lu [prev=%p|node=%p|next=%p]\n",
+                          *(int *)sub_task_current->work.private,
+                          sub_task_current->nr_sub_task,
+                          sub_task_current->sub_task_list_head.prev,
+                          &sub_task_current->sub_task_list_head,
+                          sub_task_current->sub_task_list_head.next);
+        }
+    }
+    mthpc_print("=======================================================\n");
+}
+
 /* user API */
 
+// TODO: support sub-task of @task
 void __mthpc_taskflow_precede(struct mthpc_task *task, struct mthpc_task **news,
                               int nr_task)
 {
     struct mthpc_taskflow *tf = mthpc_get_taskflow(task);
     struct mthpc_list_head adding_list;
+
+    MTHPC_BUG_ON(mthpc_is_sub_task(task), "Don't support @task as sub-task");
 
     if (unlikely(!nr_task)) {
         MTHPC_WARN_ON(nr_task == 0, "nr_task is zero");
@@ -169,14 +204,31 @@ void __mthpc_taskflow_precede(struct mthpc_task *task, struct mthpc_task **news,
 
     /* If @task is the first main task, we need to create a new main task. */
     if (task->list_node.prev == &tf->list_head) {
-        struct mthpc_task *new_main_task = container_of(
-            adding_list.next, struct mthpc_task, sub_task_list_head);
+        struct mthpc_task *new_main_task;
+        struct mthpc_list_head new_adding_list;
+        struct mthpc_list_head *pos, *n;
+
+        new_main_task = container_of(adding_list.next, struct mthpc_task,
+                                     sub_task_list_head);
         mthpc_unset_sub_task(new_main_task);
         new_main_task->nr_sub_task = nr_task;
-        mthpc_list_splice_tail(&adding_list, &task->list_node);
+
+        /* Re-link the list to list_node. */
+        mthpc_list_init(&new_adding_list);
+        mthpc_list_for_each_safe (pos, n, &adding_list) {
+            struct mthpc_task *tmp =
+                container_of(pos, struct mthpc_task, sub_task_list_head);
+            mthpc_list_del(&tmp->sub_task_list_head);
+            mthpc_list_add_tail(&tmp->list_node, &new_adding_list);
+        }
+
+        mthpc_list_splice_tail(&new_adding_list, &task->list_node);
     } else {
         /* Otherwise, we just add them to the prev main task's sub-list. */
-        mthpc_list_splice_tail(&adding_list, &task->sub_task_list_head);
+        struct mthpc_task *prev_task = mthpc_list_prev_entry(task, list_node);
+
+        mthpc_list_splice_tail(&adding_list, &prev_task->sub_task_list_head);
+        prev_task->nr_sub_task += nr_task;
     }
 }
 
@@ -195,14 +247,31 @@ void __mthpc_taskflow_succeed(struct mthpc_task *task, struct mthpc_task **news,
 
     /* If @task is the last main task, we need to create a new main task. */
     if (task->list_node.next == &tf->list_head) {
-        struct mthpc_task *new_main_task = container_of(
-            adding_list.next, struct mthpc_task, sub_task_list_head);
+        struct mthpc_task *new_main_task;
+        struct mthpc_list_head new_adding_list;
+        struct mthpc_list_head *pos, *n;
+
+        new_main_task = container_of(adding_list.next, struct mthpc_task,
+                                     sub_task_list_head);
         mthpc_unset_sub_task(new_main_task);
         new_main_task->nr_sub_task = nr_task;
-        mthpc_list_splice(&adding_list, &task->list_node);
+
+        /* Re-link the list to list_node. */
+        mthpc_list_init(&new_adding_list);
+        mthpc_list_for_each_safe (pos, n, &adding_list) {
+            struct mthpc_task *tmp =
+                container_of(pos, struct mthpc_task, sub_task_list_head);
+            mthpc_list_del(&tmp->sub_task_list_head);
+            mthpc_list_add_tail(&tmp->list_node, &new_adding_list);
+        }
+
+        mthpc_list_splice(&new_adding_list, &task->list_node);
     } else {
+        struct mthpc_task *next_task = mthpc_list_next_entry(task, list_node);
+
         /* Otherwise, we just add them to the next main task's sub-list. */
-        mthpc_list_splice(&adding_list, &task->sub_task_list_head);
+        mthpc_list_splice(&adding_list, &next_task->sub_task_list_head);
+        next_task->nr_sub_task += nr_task;
     }
 }
 
@@ -272,6 +341,8 @@ int mthpc_taskflow_await(struct mthpc_taskflow *tf)
      * we check it with nr_completed and nr_completed_sub_task.
      */
     unsigned long nr_completed = 0;
+
+    mthpc_dump_taskflow(tf);
 
     mthpc_list_for_each_entry (current, &tf->list_head, list_node) {
         struct mthpc_task *sub_task_current = NULL;

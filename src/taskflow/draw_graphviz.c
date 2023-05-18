@@ -21,14 +21,21 @@ int main(void)
 
     for (i = 0; i < NR_TASKS; i++) {
         task_id[i] = i;
-        if (i & 0x1)
-            tasks[i] =
-                mthpc_sub_task_create(tasks[i - 1], dummy_task, &task_id[i]);
-        else
+        //if (i & 0x1)
+        //    tasks[i] =
+        //        mthpc_sub_task_create(tasks[i - 1], dummy_task, &task_id[i]);
+        //else
             tasks[i] = mthpc_task_create(tf, dummy_task, &task_id[i]);
     }
 
-    //mthpc_taskflow_precede(tasks[1], tasks[0]);
+    /* succeed(A, B) => [A][B] */
+    mthpc_taskflow_succeed(tasks[2], tasks[0]);
+    mthpc_taskflow_succeed(tasks[3], tasks[1]);
+
+    /* precede(A, B) => [B][A] */
+    mthpc_taskflow_precede(tasks[4], tasks[7]);
+    mthpc_taskflow_precede(tasks[5], tasks[6]);
+    mthpc_taskflow_precede(tasks[2], tasks[4]);
 
     mthpc_taskflow_await(tf);
 
