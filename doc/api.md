@@ -5,6 +5,7 @@ mthpc supports the following features.
 - [Thread framework](#thread-framework)
 - [Workqueue](#workqueue)
 - [Centralized barrier](#centralized-barrier)
+- [Wait for completion](#wait-for-completion)
 - [Read-Copy Update](#read-copy-update-rcu)
 - [Scoped lock](#scoped-lock)
 - [Safe pointer](#safe-pointer)
