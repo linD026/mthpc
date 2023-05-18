@@ -28,6 +28,7 @@ struct mthpc_task {
      * In other words, we don't have sub sub-task. It's the sub task list.
      */
     struct mthpc_list_head sub_task_list_head;
+    struct mthpc_task *main_task;
 };
 
 struct mthpc_taskflow {
@@ -64,6 +65,13 @@ static __always_inline void mthpc_set_taskflow(struct mthpc_taskflow *tf,
         (unsigned long)tf | (unsigned long)mthpc_is_sub_task(task);
 }
 
+static __allow_unused void mthpc_dump_task(struct mthpc_task *task)
+{
+    mthpc_pr_info("ID:%d, nr_task:%lu [prev=%p|node=%p|next=%p]\n",
+                  *(int *)task->work.private, task->nr_sub_task,
+                  task->list_node.prev, &task->list_node, task->list_node.next);
+}
+
 static void mthpc_task_worker(struct mthpc_work *work)
 {
     struct mthpc_task *task = container_of(work, struct mthpc_task, work);
@@ -88,6 +96,7 @@ static struct mthpc_task *__mthpc_task_alloc(struct mthpc_taskflow *tf,
     task->nr_sub_task = 1;
     mthpc_list_init(&task->list_node);
     mthpc_list_init(&task->sub_task_list_head);
+    task->main_task = NULL;
 
     /* We don't link the task here. see taskflow_task_create family. */
     tf->nr_task++;
@@ -111,19 +120,13 @@ static void mthpc_taskflow_rlist_del(struct mthpc_list_head *list,
         struct mthpc_task *tmp = tasks[i];
 
         if (mthpc_is_sub_task(tmp)) {
-            struct mthpc_task *current;
-
             mthpc_list_del(&tmp->sub_task_list_head);
-            // TODO: Find an efficient way to decrease the sub-task number
-            mthpc_list_for_each_entry (current, &tmp->sub_task_list_head,
-                                       sub_task_list_head) {
-                if (!mthpc_is_sub_task(current)) {
-                    current->nr_sub_task--;
-                    break;
-                }
-            }
+            tmp->main_task->nr_sub_task--;
+            tmp->main_task = NULL;
             mthpc_list_add(&tmp->sub_task_list_head, list);
         } else {
+            MTHPC_WARN_ON(tmp->main_task,
+                          "We should clear the main task's main_task");
             /*
              * We are going to move the main task. Check if there are any
              * sub-task in the list.
@@ -165,7 +168,7 @@ static __allow_unused void mthpc_dump_taskflow(struct mthpc_taskflow *tf)
     mthpc_list_for_each_entry (current, &tf->list_head, list_node) {
         struct mthpc_task *sub_task_current = NULL;
 
-        mthpc_pr_info("ID:%d, sub-task:%lu [prev=%p|node=%p|next=%p]\n",
+        mthpc_pr_info("ID:%d, nr_task:%lu [prev=%p|node=%p|next=%p]\n",
                       *(int *)current->work.private, current->nr_sub_task,
                       current->list_node.prev, &current->list_node,
                       current->list_node.next);
@@ -173,7 +176,7 @@ static __allow_unused void mthpc_dump_taskflow(struct mthpc_taskflow *tf)
         mthpc_list_for_each_entry (sub_task_current,
                                    &current->sub_task_list_head,
                                    sub_task_list_head) {
-            mthpc_pr_info("    ID:%d, sub-task:%lu [prev=%p|node=%p|next=%p]\n",
+            mthpc_pr_info("    ID:%d, nr_task:%lu [prev=%p|node=%p|next=%p]\n",
                           *(int *)sub_task_current->work.private,
                           sub_task_current->nr_sub_task,
                           sub_task_current->sub_task_list_head.prev,
@@ -186,19 +189,20 @@ static __allow_unused void mthpc_dump_taskflow(struct mthpc_taskflow *tf)
 
 /* user API */
 
-// TODO: support sub-task of @task
 void __mthpc_taskflow_precede(struct mthpc_task *task, struct mthpc_task **news,
                               int nr_task)
 {
     struct mthpc_taskflow *tf = mthpc_get_taskflow(task);
     struct mthpc_list_head adding_list;
 
-    MTHPC_BUG_ON(mthpc_is_sub_task(task), "Don't support @task as sub-task");
-
     if (unlikely(!nr_task)) {
         MTHPC_WARN_ON(nr_task == 0, "nr_task is zero");
         return;
     }
+
+    //mthpc_dump_taskflow(tf);
+    if (mthpc_is_sub_task(task))
+        task = task->main_task;
 
     mthpc_taskflow_rlist_del(&adding_list, news, nr_task);
 
@@ -226,7 +230,15 @@ void __mthpc_taskflow_precede(struct mthpc_task *task, struct mthpc_task **news,
     } else {
         /* Otherwise, we just add them to the prev main task's sub-list. */
         struct mthpc_task *prev_task = mthpc_list_prev_entry(task, list_node);
+        struct mthpc_task *curr = NULL;
 
+        /* Otherwise, we just add them to the next main task's sub-list. */
+
+        /* Link the to main task */
+        mthpc_list_for_each_entry (curr, &adding_list, sub_task_list_head)
+            curr->main_task = prev_task;
+
+        /* Add to main task's sub task. */
         mthpc_list_splice_tail(&adding_list, &prev_task->sub_task_list_head);
         prev_task->nr_sub_task += nr_task;
     }
@@ -242,6 +254,10 @@ void __mthpc_taskflow_succeed(struct mthpc_task *task, struct mthpc_task **news,
         MTHPC_WARN_ON(nr_task == 0, "nr_task is zero");
         return;
     }
+
+    //mthpc_dump_taskflow(tf);
+    if (mthpc_is_sub_task(task))
+        task = task->main_task;
 
     mthpc_taskflow_rlist_del(&adding_list, news, nr_task);
 
@@ -268,8 +284,15 @@ void __mthpc_taskflow_succeed(struct mthpc_task *task, struct mthpc_task **news,
         mthpc_list_splice(&new_adding_list, &task->list_node);
     } else {
         struct mthpc_task *next_task = mthpc_list_next_entry(task, list_node);
+        struct mthpc_task *curr = NULL;
 
         /* Otherwise, we just add them to the next main task's sub-list. */
+
+        /* Link the to main task */
+        mthpc_list_for_each_entry (curr, &adding_list, sub_task_list_head)
+            curr->main_task = next_task;
+
+        /* Add to main task's sub task. */
         mthpc_list_splice(&adding_list, &next_task->sub_task_list_head);
         next_task->nr_sub_task += nr_task;
     }
@@ -301,13 +324,14 @@ struct mthpc_task *mthpc_sub_task_create(struct mthpc_task *task,
     mthpc_set_sub_task(sub_task);
     mthpc_list_add_tail(&sub_task->sub_task_list_head,
                         &task->sub_task_list_head);
+    sub_task->main_task = task;
     /*
      * We increased the tf->nr_task in __mthpc_task_alloc already.
      * But we haven't increase the sub task number yet.
      */
     task->nr_sub_task++;
 
-    return task;
+    return sub_task;
 }
 
 struct mthpc_taskflow *mthpc_taskflow_create(void)
@@ -342,7 +366,7 @@ int mthpc_taskflow_await(struct mthpc_taskflow *tf)
      */
     unsigned long nr_completed = 0;
 
-    mthpc_dump_taskflow(tf);
+    //mthpc_dump_taskflow(tf);
 
     mthpc_list_for_each_entry (current, &tf->list_head, list_node) {
         struct mthpc_task *sub_task_current = NULL;
