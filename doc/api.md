@@ -8,6 +8,7 @@ mthpc supports the following features.
 - [Read-Copy Update](#read-copy-update-rcu)
 - [Scoped lock](#scoped-lock)
 - [Safe pointer](#safe-pointer)
+- [Taskflow](#taskflow)
 
 ### Thread framework
 
@@ -225,6 +226,41 @@ void function(mthpc_borrow_ptr(type) borrow_ptr)
 #### Examples
 
 * [safe pointer self-test](../src/safe_ptr/test.c)
+
+### Taskflow
+ 
+```cpp
+#include <mthpc/taskflow.h>
+```
+
+#### Declaration
+
+Use `mthpc_taskflow_create()` to create the task framework. And, use
+`mthpc_task_create()` to add the new task.
+
+```cpp
+struct mthpc_taskflow *mthpc_taskflow_create(void);
+struct mthpc_task *mthpc_task_create(struct mthpc_taskflow *tf,
+                                     void (*func)(void *arg), void *arg);
+
+struct mthpc_task *mthpc_sub_task_create(struct mthpc_task *task,
+                                         void (*func)(void *arg), void *arg);
+```
+
+#### APIs
+
+Use `precede()` and `succeed()` functions to decide which task run first.
+After that, use `await()` to run all the tasks in the framework.
+
+```cpp
+void mthpc_taskflow_precede(task, forward_tasks...);
+void mthpc_taskflow_succeed(task, backward_tasks...);
+int mthpc_taskflow_await(struct mthpc_taskflow *tf);
+```
+
+#### Examples
+
+* [taskflow self-test](../src/taskflow/draw_graphviz.c)
 
 ---
 
