@@ -105,6 +105,26 @@ static struct mthpc_task *__mthpc_task_alloc(struct mthpc_taskflow *tf,
 }
 
 /*
+ * TODO: Provide more fine-grained control of moving the task.
+ * For example. when we have the following list:
+ *
+ *  - A
+ *  - B
+ *    - C
+ *    - D
+ *    
+ * If we do precede(C, D), we will move the D to the sub-list of B.
+ * However, it should be like this:
+ *
+ * - A
+ * - B
+ *   - D
+ *   - C
+ *
+ * Which means that we should make the main task as the sub-taskflow.
+ */
+
+/*
  * Find the task's location, delete it in the orignal location,
  * mark it as sub-task and add to the @list.
  */
