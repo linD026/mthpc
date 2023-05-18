@@ -3,17 +3,14 @@
 
 #include <stdatomic.h>
 
-/* Reuse the centralized barrier */
-#include <mthpc/centralized_barrier.h>
-
 struct mthpc_completion {
-    struct mthpc_barrier barrier;
-    unsigned long nr;
+    atomic_ulong cnt;
+    atomic_size_t nr;
 };
 
-#define MTHPC_COMPLETION_INIT                 \
-    {                                         \
-        .barrier = MTHPC_BARRIER_INIT, nr = 0 \
+#define MTHPC_COMPLETION_INIT \
+    {                         \
+        .cnt = 0, nr = 0      \
     }
 
 #define MTHPC_DECLARE_COMPLETION(name, completion) \
@@ -22,19 +19,21 @@ struct mthpc_completion {
 static inline void mthpc_completion_init(struct mthpc_completion *completion,
                                          unsigned long nr)
 {
-    mthpc_barrier_init(&completion->barrier);
+    completion->cnt = 0;
     completion->nr = nr;
 }
 
 static inline void mthpc_complete(struct mthpc_completion *completion)
 {
-    mthpc_centralized_barrier_nb(&completion->barrier);
+    atomic_fetch_add_explicit(&completion->cnt, 1, memory_order_release);
 }
 
 static inline void
 mthpc_wait_for_completion(struct mthpc_completion *completion)
 {
-    mthpc_centralized_barrier(&completion->barrier, completion->nr);
+    while (atomic_load_explicit(&completion->cnt, memory_order_acquire) !=
+           completion->nr)
+        ;
 }
 
 #endif /* __MTHPC_COMPLETION_H__ */

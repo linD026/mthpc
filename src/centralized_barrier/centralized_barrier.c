@@ -10,13 +10,6 @@
 
 static __thread int mthpc_local_sense = 0;
 
-void mthpc_centralized_barrier_nb(struct mthpc_barrier *b)
-{
-    spin_lock(&b->lock);
-    b->count++;
-    spin_unlock(&b->lock);
-}
-
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
 {
     mthpc_local_sense = !mthpc_local_sense;
@@ -28,11 +21,16 @@ void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n)
         spin_unlock(&b->lock);
         atomic_store_explicit(&b->flag, mthpc_local_sense,
                               memory_order_release);
-    } else {
+    } else if (b->count < n) {
         spin_unlock(&b->lock);
         while (atomic_load_explicit(&b->flag, memory_order_acquire) !=
                mthpc_local_sense)
             ;
+    } else {
+        int cnt = b->count;
+        spin_unlock(&b->lock);
+        MTHPC_WARN_ON(1, "barrier's counter is %d (should be <= %d)\n", cnt,
+                      (int)n);
     }
 }
 

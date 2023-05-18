@@ -112,7 +112,6 @@ be blocked by this barrier.
 ```cpp
 void mthpc_barrier_init(struct mthpc_barrier *b);
 void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n);
-void mthpc_centralized_barrier_nb(struct mthpc_barrier *b);
 ```
 
 ### Wait for completion
