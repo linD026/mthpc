@@ -281,10 +281,11 @@ int mthpc_queue_thread_work(struct mthpc_work *work)
     return __mthpc_schedule_work_on(&mthpc_thread_wp, -1, work);
 }
 
-int mthpc_queue_taskflow_work(struct mthpc_work *work)
+int mthpc_schedule_taskflow_work_on(int cpu, struct mthpc_work *work)
 {
-    return __mthpc_schedule_work_on(&mthpc_taskflow_wp, -1, work);
+    return __mthpc_schedule_work_on(&mthpc_taskflow_wp, cpu, work);
 }
+
 /* user API */
 
 int mthpc_schedule_work_on(int cpu, struct mthpc_work *work)

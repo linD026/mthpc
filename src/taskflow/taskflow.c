@@ -14,6 +14,9 @@
 #undef _MTHPC_FEATURE
 #define _MTHPC_FEATURE taskflow
 
+#define MTHPC_TASKFLOW_CPU 0x0004
+#define MTHPC_TASKFLOW_CPU_MASK (MTHPC_TASKFLOW_CPU - 1)
+
 struct mthpc_task {
     struct mthpc_work work;
     unsigned long __is_sub_task_parent;
@@ -76,6 +79,8 @@ static void mthpc_task_worker(struct mthpc_work *work)
 {
     struct mthpc_task *task = container_of(work, struct mthpc_task, work);
     struct mthpc_taskflow *tf = mthpc_get_taskflow(task);
+
+    mthpc_dump_work(work);
     task->func(work->private);
     mthpc_complete(&tf->completion);
 }
@@ -207,6 +212,11 @@ static __allow_unused void mthpc_dump_taskflow(struct mthpc_taskflow *tf)
     mthpc_print("=======================================================\n");
 }
 
+static __always_inline int mthpc_taskflow_get_cpu(unsigned long seed)
+{
+    return (int)seed & MTHPC_TASKFLOW_CPU_MASK;
+}
+
 /* user API */
 
 void __mthpc_taskflow_precede(struct mthpc_task *task, struct mthpc_task **news,
@@ -220,7 +230,7 @@ void __mthpc_taskflow_precede(struct mthpc_task *task, struct mthpc_task **news,
         return;
     }
 
-    //mthpc_dump_taskflow(tf);
+    mthpc_dump_taskflow(tf);
     if (mthpc_is_sub_task(task))
         task = task->main_task;
 
@@ -275,7 +285,7 @@ void __mthpc_taskflow_succeed(struct mthpc_task *task, struct mthpc_task **news,
         return;
     }
 
-    //mthpc_dump_taskflow(tf);
+    mthpc_dump_taskflow(tf);
     if (mthpc_is_sub_task(task))
         task = task->main_task;
 
@@ -386,7 +396,7 @@ int mthpc_taskflow_await(struct mthpc_taskflow *tf)
      */
     unsigned long nr_completed = 0;
 
-    //mthpc_dump_taskflow(tf);
+    mthpc_dump_taskflow(tf);
 
     mthpc_list_for_each_entry (current, &tf->list_head, list_node) {
         struct mthpc_task *sub_task_current = NULL;
@@ -394,7 +404,8 @@ int mthpc_taskflow_await(struct mthpc_taskflow *tf)
 
         mthpc_completion_init(&tf->completion, current->nr_sub_task);
 
-        mthpc_queue_taskflow_work(&current->work);
+        mthpc_schedule_taskflow_work_on(
+            mthpc_taskflow_get_cpu(nr_completed_sub_task), &current->work);
         nr_completed_sub_task++;
 
         /*
@@ -403,7 +414,9 @@ int mthpc_taskflow_await(struct mthpc_taskflow *tf)
         mthpc_list_for_each_entry (sub_task_current,
                                    &current->sub_task_list_head,
                                    sub_task_list_head) {
-            mthpc_queue_taskflow_work(&sub_task_current->work);
+            mthpc_schedule_taskflow_work_on(
+                mthpc_taskflow_get_cpu(nr_completed_sub_task),
+                &sub_task_current->work);
             nr_completed_sub_task++;
         }
 
