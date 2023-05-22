@@ -10,8 +10,8 @@ static int cnt = 0;
 
 static void dump_work(struct mthpc_work *work)
 {
+    mthpc_dump_work(work);
     if (cnt == 10) {
-        mthpc_dump_work(work);
         return;
     }
     mthpc_pr_info("cnt=%d\n", cnt++);

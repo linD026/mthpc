@@ -21,7 +21,7 @@
 
 #define MTHPC_WQ_NR_CPU (4U)
 #define MTHPC_WQ_CPU_MASK (MTHPC_WQ_NR_CPU - 1)
-#define MTHPC_WQ_ACTIVED_FLAG MTHPC_WQ_NR_CPU
+#define MTHPC_WQ_ACTIVED_FLAG (MTHPC_WQ_NR_CPU)
 
 struct mthpc_workqueue {
     /* pool uses active to notify the wq should be finished or not. */
@@ -69,10 +69,17 @@ static __always_inline void mthpc_wq_set_cpu(struct mthpc_workqueue *wq,
                                              int cpu)
 {
 #ifdef __linux__
-    unsigned int masked_cpuid = ~MTHPC_WQ_CPU_MASK | (unsigned int)cpu;
+    unsigned int old_masked_cpuid,
+        masked_cpuid =
+            atomic_load_explicit(&wq->__actived_cpu, memory_order_acquire);
 
-    atomic_fetch_and_explicit(&wq->__actived_cpu, masked_cpuid,
-                              memory_order_relaxed);
+    old_masked_cpuid = masked_cpuid;
+    masked_cpuid &= ~MTHPC_WQ_CPU_MASK;
+    masked_cpuid |= (cpu & MTHPC_WQ_CPU_MASK);
+
+    atomic_compare_exchange_weak_explicit(&wq->__actived_cpu, &old_masked_cpuid,
+                                          masked_cpuid, memory_order_release,
+                                          memory_order_relaxed);
 #else
 #endif
 }
@@ -87,7 +94,8 @@ static __always_inline void mthpc_wq_run_on_cpu(struct mthpc_workqueue *wq)
     CPU_ZERO(&cpuset);
     CPU_SET(cpuid, &cpuset);
 
-    pthread_setaffinity_np(tid, sizeof(cpuset), &cpuset);
+    MTHPC_WARN_ON(pthread_setaffinity_np(tid, sizeof(cpuset), &cpuset),
+                  "set cpu failed");
 #else
 #endif
 }
