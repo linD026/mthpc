@@ -11,7 +11,8 @@ and [POSIX Threads](https://en.wikipedia.org/wiki/Pthreads).
 To build the mthpc library, use the following commands.
 
 ```bash
-make                # Build the library and headers in mthpc directory
+make build          # Build the library and headers in mthpc directory
+make lib            # Build the library only
 make clean          # Delete generated files
 ```
 
