@@ -68,19 +68,11 @@ static __always_inline void mthpc_set_taskflow(struct mthpc_taskflow *tf,
         (unsigned long)tf | (unsigned long)mthpc_is_sub_task(task);
 }
 
-static __allow_unused void mthpc_dump_task(struct mthpc_task *task)
-{
-    mthpc_pr_info("ID:%d, nr_task:%lu [prev=%p|node=%p|next=%p]\n",
-                  *(int *)task->work.private, task->nr_sub_task,
-                  task->list_node.prev, &task->list_node, task->list_node.next);
-}
-
 static void mthpc_task_worker(struct mthpc_work *work)
 {
     struct mthpc_task *task = container_of(work, struct mthpc_task, work);
     struct mthpc_taskflow *tf = mthpc_get_taskflow(task);
 
-    mthpc_dump_work(work);
     task->func(work->private);
     mthpc_complete(&tf->completion);
 }
@@ -182,6 +174,14 @@ static void mthpc_taskflow_rlist_del(struct mthpc_list_head *list,
     }
 }
 
+#ifdef CONFIG_DEBUG
+static __allow_unused void mthpc_dump_task(struct mthpc_task *task)
+{
+    mthpc_pr_info("ID:%d, nr_task:%lu [prev=%p|node=%p|next=%p]\n",
+                  *(int *)task->work.private, task->nr_sub_task,
+                  task->list_node.prev, &task->list_node, task->list_node.next);
+}
+
 static __allow_unused void mthpc_dump_taskflow(struct mthpc_taskflow *tf)
 {
     struct mthpc_task *current = NULL;
@@ -211,6 +211,15 @@ static __allow_unused void mthpc_dump_taskflow(struct mthpc_taskflow *tf)
     }
     mthpc_print("=======================================================\n");
 }
+#else
+static __allow_unused void mthpc_dump_task(struct mthpc_task *task)
+{
+}
+
+static __allow_unused void mthpc_dump_taskflow(struct mthpc_taskflow *tf)
+{
+}
+#endif /* CONFIG_DEBUG */
 
 static __always_inline int mthpc_taskflow_get_cpu(unsigned long seed)
 {
