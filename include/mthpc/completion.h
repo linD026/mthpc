@@ -8,13 +8,13 @@ struct mthpc_completion {
     atomic_size_t nr;
 };
 
-#define MTHPC_COMPLETION_INIT \
-    {                         \
-        .cnt = 0, nr = 0      \
+#define MTHPC_COMPLETION_INIT(_nr) \
+    {                              \
+        .cnt = 0, nr = _nr         \
     }
 
-#define MTHPC_DECLARE_COMPLETION(name, completion) \
-    struct mthpc_completion name = MTHPC_COMPLETION_INIT
+#define MTHPC_DECLARE_COMPLETION(name, _nr) \
+    struct mthpc_completion name = MTHPC_COMPLETION_INIT(_nr)
 
 static inline void mthpc_completion_init(struct mthpc_completion *completion,
                                          unsigned long nr)

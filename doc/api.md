@@ -125,13 +125,16 @@ void mthpc_centralized_barrier(struct mthpc_barrier *b, size_t n);
 #### Declaration
 
 ```cpp
-MTHPC_DECLARE_COMPLETION(name, completion);
-struct completion name = MTHPC_COMPLETION_INIT;
+MTHPC_DECLARE_COMPLETION(name, nr);
+struct completion name = MTHPC_COMPLETION_INIT(nr);
 ```
 
 #### APIs
 
 ```cpp
+
+void mthpc_completion_init(struct mthpc_completion *completion,
+                           unsigned long nr);
 void mthpc_complete(struct mthpc_completion *completion);
 void mthpc_wait_for_completion(struct mthpc_completion *completion);
 ```
