@@ -69,17 +69,18 @@ static __always_inline void mthpc_wq_set_cpu(struct mthpc_workqueue *wq,
                                              int cpu)
 {
 #ifdef __linux__
-    unsigned int old_masked_cpuid,
-        masked_cpuid =
-            atomic_load_explicit(&wq->__actived_cpu, memory_order_acquire);
+    unsigned int old_masked_cpuid, masked_cpuid;
+
+    masked_cpuid =
+        atomic_load_explicit(&wq->__actived_cpu, memory_order_acquire);
 
     old_masked_cpuid = masked_cpuid;
     masked_cpuid &= ~MTHPC_WQ_CPU_MASK;
     masked_cpuid |= (cpu & MTHPC_WQ_CPU_MASK);
 
-    atomic_compare_exchange_weak_explicit(&wq->__actived_cpu, &old_masked_cpuid,
-                                          masked_cpuid, memory_order_release,
-                                          memory_order_relaxed);
+    atomic_compare_exchange_strong_explicit(
+        &wq->__actived_cpu, &old_masked_cpuid, masked_cpuid,
+        memory_order_release, memory_order_relaxed);
 #else
 #endif
 }
