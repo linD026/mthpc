@@ -2,11 +2,13 @@
 #include <mthpc/thread.h>
 
 static int cnt = 0;
+static DEFINE_SPINLOCK(sp);
 
 static void worker(struct mthpc_thread_group *th)
 {
     {
-        mthpc_scoped_lock(spin_lock);
+        mthpc_scoped_lock(rcu);
+        mthpc_scoped_lock(spinlock, &sp);
         cnt++;
     }
 }

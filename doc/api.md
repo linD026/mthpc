@@ -182,8 +182,8 @@ void mthpc_scoped_lock(lock_type);
 ```
 
 Scoped lock support following lock types:
-- `spin_lock`
-- `rcu_read_lock`
+- `spinlock`
+- `rcu`
 
 #### Examples
 
@@ -276,6 +276,7 @@ int mthpc_taskflow_await(struct mthpc_taskflow *tf);
 #include <mthpc/list.h>
 #include <mthpc/debug.h>
 #include <mthpc/print.h>
+#include <mthpc/guards.h>
 ```
 
 ---
