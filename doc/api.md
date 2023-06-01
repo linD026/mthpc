@@ -177,8 +177,9 @@ void mthpc_synchronize_rcu_all(void);
 #### APIs
 
 ```cpp
-/* For lock_type, see following description. */
+/* For lock_type, see the following description. */
 void mthpc_scoped_lock(lock_type);
+void mthpc_scoped_lock(lock_type, lock_ptr);
 ```
 
 Scoped lock support following lock types:
