@@ -1,9 +1,6 @@
 #ifndef __MTHPC_GUARDS_H__
 #define __MTHPC_GUARDS_H__
 
-#include <mthpc/rcu.h>
-#include <mthpc/spinlock.h>
-
 #ifndef ___PASTE
 #define ___PASTE(a, b) a##b
 #endif
@@ -59,20 +56,5 @@
     mthpc_generated_guards_##type##_t __UNIQUE_ID(type)                      \
     __allow_unused __MTHPC_CLEANUP__(mthpc_generated_guards_##type##_exit) = \
         mthpc_generated_guards_##type##_init(lock_ptr)
-
-static inline void __mthpc_scoped_lock_rcu_read_lock(void *lock)
-{
-    mthpc_rcu_read_lock();
-}
-
-static inline void __mthpc_scoped_lock_rcu_read_unlock(void *lock)
-{
-    mthpc_rcu_read_unlock();
-}
-
-MTHPC_DECLARE_GUARD_OBJ(void, rcu, __mthpc_scoped_lock_rcu_read_lock,
-                        __mthpc_scoped_lock_rcu_read_unlock);
-
-MTHPC_DECLARE_GUARD_OBJ(spinlock_t, spinlock, spin_lock, spin_unlock);
 
 #endif /* __MTHPC_GUARDS_H__ */
