@@ -34,9 +34,11 @@ static __always_inline void mthpc_dump_stack(void)
     } while (0)
 
 #define MTHPC_WARN_ON(cond, fmt, ...)                                    \
-    do {                                                                 \
-        if (unlikely(cond))                                              \
+    ({                                                                   \
+        int __mthpc_w_o_ret = !!(cond);                                  \
+        if (unlikely(__mthpc_w_o_ret))                                   \
             mthpc_pr_err("WARN ON:" #cond ", " fmt "\n", ##__VA_ARGS__); \
-    } while (0)
+        __mthpc_w_o_ret;                                                 \
+    })
 
 #endif /* __MTHPC_DEBUG_H__*/

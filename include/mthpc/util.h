@@ -39,6 +39,36 @@
 #define __allow_unused __attribute__((unused))
 #endif
 
+#ifdef __CHECKER__
+
+#ifndef __force
+#define __force __attribute__((force))
+#endif
+
+#ifndef disenchant_ptr
+#define disenchant_ptr(p) ((__typeof__(*p) __force *)p)
+#endif
+
+#ifndef enchant_ptr
+#define enchant_ptr(p, type) ((__typeof__(*p) __force type *)p)
+#endif
+
+#else /* !__CHECKER__ */
+
+#ifndef __force
+#define __force
+#endif
+
+#ifndef disenchant_ptr
+#define disenchant_ptr(p) p
+#endif
+
+#ifndef enchant_ptr
+#define enchant_ptr(p, type) p
+#endif
+
+#endif /* __CHECKER__ */
+
 #ifndef WRITE_ONCE
 #include <stdatomic.h>
 #define WRITE_ONCE(x, val)                                                 \
