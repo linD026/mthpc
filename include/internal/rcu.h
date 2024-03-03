@@ -1,6 +1,7 @@
 #ifndef __MTHPC_INTERNAL_RCU_H__
 #define __MTHPC_INTERNAL_RCU_H__
 
+// TODO: define the data definition here
 struct mthpc_rcu_data;
 struct mthpc_rcu_node;
 
