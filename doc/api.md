@@ -196,36 +196,61 @@ Scoped lock support following lock types:
 #include <mthpc/safe_ptr.h>
 ```
 
-RAII type of object.
+Atomic RAII type of object.
 It is similar to the [`shared_ptr`](https://en.cppreference.com/w/cpp/memory/shared_ptr) in C++.
 
 #### Declaration
 
 ```cpp
 /* the object which protected by other safe_ptr or from mthpc_unsafe_alloc() */
-MTHPC_DECLARE_SAFE_PTR(type, name, safe_data);
-MTHPC_MAKE_SAFE_PTR(name, type, void (*dtor)(void *));
+MTHPC_DECLARE_SAFE_PTR(type, name, dtor);
+MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, struct mthpc_safe_ptr __mthpc_brw *brw_sp);
+MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(type, name, struct mthpc_safe_ptr __mthpc_move *move_sp);
 ```
 
 #### APIs
 
 ```cpp
-void *mthpc_unsafe_alloc(type, void (*dtor)(void *));
-void mthpc_safe_get(type *safe_ptr);
-void mthpc_safe_put(type *safe_ptr);
+/* safe pointer operations */
+void mthpc_safe_ptr_store_sp(struct mthpc_safe_ptr *sp, void *new);
+void mthpc_safe_ptr_store_data(sp, raw_data);
+void mthpc_safe_ptr_load(struct mthpc_safe_ptr *sp, void *dst);
+int mthpc_safe_ptr_cmpxhg(struct mthpc_safe_ptr *sp, void *expected,
+                          void *desired);
+
+/* Debug */
+__allow_unused void mthpc_dump_safe_ptr(struct mthpc_safe_ptr *sp);
 ```
 
-To pass the safe data to another function, use the borrow methods.
+To borrow the safe data to another function, use the borrow methods.
+Every borrowed safe pointer has the `__mthpc_brw` attribute. This means
+that the user cannot directly derefernce the borrowed safe pointer.
 
 ```cpp
-function(mthpc_borrow_to(safe_ptr));
+/* borrow the safe pointer to other function. */
+function(mthpc_borrow_safe_ptr(safe_ptr));
 
-void function(mthpc_borrow_ptr(type) borrow_ptr)
+void function(struct mthpc_safe_ptr __mthpc_brw borrow_ptr)
 {
     MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, borrow_ptr);
 
     ...
 }
+```
+
+However, if you want to transfer the ownership of safe pointer to other
+function, use the move methods.
+
+```cpp
+function(mthpc_move_safe_ptr(safe_ptr));
+
+void function(struct mthpc_safe_ptr __mthpc_move move_ptr)
+{
+    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, borrow_ptr);
+
+    ...
+}
+
 ```
 
 #### Examples

@@ -15,8 +15,8 @@ struct mthpc_safe_ptr {
 
 void mthpc_safe_ptr_create(struct mthpc_safe_ptr *stack_sp, size_t size,
                            void (*dtor)(void *));
+//void mthpc_safe_ptr_drop(struct mthpc_safe_ptr *sp);
 void mthpc_safe_ptr_destroy(struct mthpc_safe_ptr *sp);
-void mthpc_safe_ptr_drop(struct mthpc_safe_ptr *sp);
 // Store new safe data
 void mthpc_safe_ptr_store_sp(struct mthpc_safe_ptr *sp, void *new);
 // Store the raw data
@@ -47,9 +47,15 @@ __allow_unused void mthpc_dump_safe_ptr(struct mthpc_safe_ptr *sp);
 
 #ifdef __CHECKER__
 #define __mthpc_brw __attribute__((noderef, address_space(1)))
+#define __mthpc_move __attribute__((noderef, address_space(2)))
 #else
 #define __mthpc_brw
+#define __mthpc_move
 #endif
+
+struct mthpc_safe_ptr *
+mthpc_pass_sp_post(struct mthpc_safe_ptr __mthpc_brw *brw_sp,
+                   struct mthpc_safe_ptr *sp);
 
 struct mthpc_safe_ptr __mthpc_brw *
 mthpc_borrow_safe_ptr(struct mthpc_safe_ptr *sp)
@@ -57,15 +63,24 @@ mthpc_borrow_safe_ptr(struct mthpc_safe_ptr *sp)
     return enchant_ptr(sp, __mthpc_brw);
 }
 
-struct mthpc_safe_ptr *
-mthpc_borrow_post(struct mthpc_safe_ptr __mthpc_brw *brw_sp,
-                  struct mthpc_safe_ptr *sp);
-
 #define MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, brw_sp) \
     struct mthpc_safe_ptr name                                 \
         __attribute__((cleanup(mthpc_safe_ptr_destroy)));      \
     do {                                                       \
-        mthpc_borrow_post(brw_sp, &name);                      \
+        mthpc_pass_sp_post(brw_sp, &name);                     \
+    } while (0)
+
+struct mthpc_safe_ptr __mthpc_move *
+mthpc_move_safe_ptr(struct mthpc_safe_ptr *sp)
+{
+    return enchant_ptr(sp, __mthpc_move);
+}
+
+#define MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(type, name, move_sp) \
+    struct mthpc_safe_ptr name                                \
+        __attribute__((cleanup(mthpc_safe_ptr_destroy)));     \
+    do {                                                      \
+        mthpc_pass_sp_post(move_sp, &name);                   \
     } while (0)
 
 #endif /* __MTHPC_SAFE_PTR_H__ */

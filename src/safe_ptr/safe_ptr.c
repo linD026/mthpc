@@ -273,14 +273,14 @@ int mthpc_safe_ptr_cmpxhg(struct mthpc_safe_ptr *sp, void *expected,
 }
 
 struct mthpc_safe_ptr *
-mthpc_borrow_post(struct mthpc_safe_ptr __mthpc_brw *brw_sp,
-                  struct mthpc_safe_ptr *sp)
+mthpc_pass_sp_post(struct mthpc_safe_ptr __mthpc_brw *pass_sp,
+                   struct mthpc_safe_ptr *sp)
 {
-    struct mthpc_safe_ptr *unsafe_brw_sp = disenchant_ptr(brw_sp);
+    struct mthpc_safe_ptr *unsafe_sp = disenchant_ptr(pass_sp);
 
-    mthpc_safe_get(unsafe_brw_sp);
+    mthpc_safe_get(unsafe_sp);
     sp->id = atomic_fetch_add(&mthpc_sp_rcu_cnt, 1);
-    mthpc_safe_ptr_add(sp, mthpc_cb_load(unsafe_brw_sp));
+    mthpc_safe_ptr_add(sp, mthpc_cb_load(unsafe_sp));
     return sp;
 }
 
