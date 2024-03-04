@@ -67,6 +67,7 @@ mthpc_borrow_safe_ptr(struct mthpc_safe_ptr *sp)
     struct mthpc_safe_ptr name                                 \
         __attribute__((cleanup(mthpc_safe_ptr_destroy)));      \
     do {                                                       \
+        check_enchant_ptr(brw_sp, __mthpc_brw);                \
         mthpc_pass_sp_post(brw_sp, &name);                     \
     } while (0)
 
@@ -80,6 +81,7 @@ mthpc_move_safe_ptr(struct mthpc_safe_ptr *sp)
     struct mthpc_safe_ptr name                                \
         __attribute__((cleanup(mthpc_safe_ptr_destroy)));     \
     do {                                                      \
+        check_enchant_ptr(brw_sp, __mthpc_move);              \
         mthpc_pass_sp_post(move_sp, &name);                   \
     } while (0)
 

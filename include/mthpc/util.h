@@ -50,7 +50,11 @@
 #endif
 
 #ifndef enchant_ptr
-#define enchant_ptr(p, type) ((__typeof__(*p) __force type *)p)
+#define enchant_ptr(p, space) ((__typeof__(*p) __force space *)p)
+#endif
+
+#ifndef check_enchant_ptr
+#define check_enchant_ptr(p, space) ((void)(((__typeof__(*p) space *)p) == p))
 #endif
 
 #else /* !__CHECKER__ */
@@ -64,7 +68,11 @@
 #endif
 
 #ifndef enchant_ptr
-#define enchant_ptr(p, type) p
+#define enchant_ptr(p, space) p
+#endif
+
+#ifndef check_enchant_ptr
+#define check_enchant_ptr(p, space)
 #endif
 
 #endif /* __CHECKER__ */
