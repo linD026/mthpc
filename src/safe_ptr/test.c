@@ -11,57 +11,71 @@ struct test {
     atomic_ulong cnt;
 };
 
-static void get_and_put(struct mthpc_thread_group *th)
-{
-    MTHPC_DECLARE_SAFE_PTR(struct test, safe_ptr, th->args);
-
-    atomic_fetch_add_explicit(&safe_ptr->cnt, 1, memory_order_seq_cst);
-    printf("cnt=%lu\n",
-           atomic_load_explicit(&safe_ptr->cnt, memory_order_consume));
-}
-
 static void test_dtor(void *data)
 {
-    printf("%s: dtor(refcount=%lu)\n", mthpc_safe_proto_of(data)->name,
-           atomic_load_explicit(&mthpc_safe_proto_of(data)->refcount,
-                                memory_order_consume));
+    mthpc_print("call to the test_dtor\n");
+}
+
+static void get_and_put(struct mthpc_thread_group *th)
+{
+    // cb->refcnt_inc
+    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(struct test, safe_ptr, th->args);
+    struct test raw_data;
+
+    mthpc_safe_ptr_load(&safe_ptr, &raw_data);
+    atomic_fetch_add_explicit(&raw_data.cnt, 1, memory_order_seq_cst);
+    printf("cnt=%lu\n",
+           atomic_load_explicit(&raw_data.cnt, memory_order_consume));
+    // cb->refcnt_dec
 }
 
 static void test_get_and_put(void)
 {
-    /* Or you can use MTHPC_MAKE_SAFE_PTR(type, name, dtor). */
-    MTHPC_DECLARE_SAFE_PTR(struct test, dut,
-                           mthpc_unsafe_alloc(struct test, test_dtor));
-    MTHPC_DECLARE_THREAD_GROUP(get_and_put_work, 10, NULL, get_and_put, dut);
+    // cb->refcnt = 1
+    MTHPC_DECLARE_SAFE_PTR(struct test, dut, test_dtor);
+    MTHPC_DECLARE_THREAD_GROUP(get_and_put_work, 10, NULL, get_and_put,
+                               mthpc_borrow_safe_ptr(&dut));
+    struct test raw_data;
 
     mthpc_print("test get and put\n");
-    dut->cnt = 0;
+    mthpc_safe_ptr_load(&dut, &raw_data);
     mthpc_thread_async_run(&get_and_put_work);
-    mthpc_safe_put(dut);
     mthpc_thread_async_wait(&get_and_put_work);
+
+    // cb->refcnt_dec
 }
 
-static void borrow_to_here(mthpc_borrow_ptr(struct test) p)
+static void test_store(void)
 {
-    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(struct test, safe_ptr, p);
+    MTHPC_DECLARE_SAFE_PTR(struct test, first, test_dtor);
+    MTHPC_DECLARE_SAFE_PTR(struct test, second, test_dtor);
+    struct test raw_data;
 
-    printf("cnt=%lu\n",
-           atomic_load_explicit(&safe_ptr->cnt, memory_order_consume));
-}
+    mthpc_print("test store\n");
 
-static void test_borrow(void)
-{
-    MTHPC_MAKE_SAFE_PTR(struct test, dut, test_dtor);
+    raw_data.cnt = 1;
+    mthpc_safe_ptr_store_data(&first, &raw_data);
 
-    mthpc_print("test borrow\n");
-    atomic_init(&dut->cnt, 0);
-    borrow_to_here(mthpc_borrow_to(dut));
+    raw_data.cnt = 2;
+    mthpc_safe_ptr_store_data(&second, &raw_data);
+
+    mthpc_safe_ptr_load(&first, &raw_data);
+    mthpc_print("first safe_ptr context: %lu\n", atomic_load(&raw_data.cnt));
+    mthpc_dump_safe_ptr(&first);
+    mthpc_safe_ptr_load(&second, &raw_data);
+    mthpc_dump_safe_ptr(&second);
+    mthpc_print("second safe_ptr context: %lu\n", atomic_load(&raw_data.cnt));
+
+    //mthpc_safe_ptr_store_sp(&first, );
+    //mthpc_safe_ptr_load(&first, &raw_data);
+    //mthpc_print("first safe ptr context: %lu\n", atomic_load(&raw_data.cnt));
 }
 
 int main(void)
 {
     test_get_and_put();
-    test_borrow();
+    test_store();
+    // test_lf_stack();
 
     return 0;
 }
