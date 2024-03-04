@@ -212,15 +212,18 @@ MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(type, name, struct mthpc_safe_ptr __mthpc_move 
 #### APIs
 
 ```cpp
-/* safe pointer operations */
+/* Store the new protected pointer to this safe pointer */
 void mthpc_safe_ptr_store_sp(struct mthpc_safe_ptr *sp, void *new);
+/* Store the new context to the protected pointer */
 void mthpc_safe_ptr_store_data(sp, raw_data);
+/* Load the context of the protected pointer */
 void mthpc_safe_ptr_load(struct mthpc_safe_ptr *sp, void *dst);
+/* cmpxchg the context of the protected pointer */
 int mthpc_safe_ptr_cmpxhg(struct mthpc_safe_ptr *sp, void *expected,
                           void *desired);
 
 /* Debug */
-__allow_unused void mthpc_dump_safe_ptr(struct mthpc_safe_ptr *sp);
+void mthpc_dump_safe_ptr(struct mthpc_safe_ptr *sp);
 ```
 
 To borrow the safe data to another function, use the borrow methods.
