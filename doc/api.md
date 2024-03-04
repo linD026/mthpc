@@ -203,7 +203,6 @@ Support the [Sparse](https://sparse.docs.kernel.org/en/latest/) checking.
 #### Declaration
 
 ```cpp
-/* the object which protected by other safe_ptr or from mthpc_unsafe_alloc() */
 MTHPC_DECLARE_SAFE_PTR(type, name, dtor);
 MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, struct mthpc_safe_ptr __mthpc_brw *brw_sp);
 MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(type, name, struct mthpc_safe_ptr __mthpc_move *move_sp);
@@ -228,13 +227,13 @@ void mthpc_dump_safe_ptr(struct mthpc_safe_ptr *sp);
 
 To borrow the safe data to another function, use the borrow methods.
 Every borrowed safe pointer has the `__mthpc_brw` attribute. This means
-that the user cannot directly derefernce the borrowed safe pointer.
+that the user cannot directly dereference the borrowed safe pointer.
 
 ```cpp
 /* borrow the safe pointer to other function. */
 function(mthpc_borrow_safe_ptr(safe_ptr));
 
-void function(struct mthpc_safe_ptr __mthpc_brw borrow_ptr)
+void function(struct mthpc_safe_ptr __mthpc_brw *borrow_ptr)
 {
     MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, borrow_ptr);
 
@@ -248,7 +247,7 @@ function, use the move methods.
 ```cpp
 function(mthpc_move_safe_ptr(safe_ptr));
 
-void function(struct mthpc_safe_ptr __mthpc_move move_ptr)
+void function(struct mthpc_safe_ptr __mthpc_move *move_ptr)
 {
     MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, borrow_ptr);
 
