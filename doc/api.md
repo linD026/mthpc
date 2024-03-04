@@ -198,6 +198,7 @@ Scoped lock support following lock types:
 
 Atomic RAII type of object.
 It is similar to the [`shared_ptr`](https://en.cppreference.com/w/cpp/memory/shared_ptr) in C++.
+Support the [Sparse](https://sparse.docs.kernel.org/en/latest/) checking.
 
 #### Declaration
 
