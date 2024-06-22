@@ -249,7 +249,7 @@ function(mthpc_move_safe_ptr(safe_ptr));
 
 void function(struct mthpc_safe_ptr __mthpc_move *move_ptr)
 {
-    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, borrow_ptr);
+    MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(type, name, move_ptr);
 
     ...
 }
