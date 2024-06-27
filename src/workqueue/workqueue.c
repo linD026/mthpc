@@ -11,6 +11,7 @@
 #include <mthpc/print.h> /* for dump work */
 #include <mthpc/rcu.h> /* queue work will use rcu */
 #include <mthpc/rculist.h>
+#include <mthpc/futex.h>
 
 #include <internal/workqueue.h> /* provide wq for other features */
 #include <internal/rcu.h> /* for rcu workqueue */
@@ -28,6 +29,12 @@ struct mthpc_workqueue {
     atomic_uint __actived_cpu;
     spinlock_t lock;
     pthread_t tid;
+    /*
+     * Following futex values represent the of the workqueue:
+     * - 0: empty queue
+     * - 1: non-empty queue
+     */
+    int32_t futex;
     /* the number of work in queue */
     unsigned int count;
     /* workqueue (work) linked list */
@@ -123,6 +130,37 @@ static __always_inline void mthpc_wq_clear_active(struct mthpc_workqueue *wq)
                               memory_order_release);
 }
 
+// TODO: futex with Tsan will report this:
+// FATAL: ThreadSanitizer: unexpected memory mapping 0x631032bd7000-0x631032bd8000
+static __always_inline void mthpc_wq_futex_wait(struct mthpc_workqueue *wq)
+{
+    int ret = 0;
+
+    smp_rmb();
+    while (!READ_ONCE(wq->futex)) {
+        ret = futex((int32_t *)&wq->futex, FUTEX_WAIT, 0, NULL, NULL, 0);
+        switch (ret) {
+        case EAGAIN:
+            /* value already changed, someone queue the work */
+            /* we assume that the wq thread will stay in same cpu. */
+            WRITE_ONCE(wq->futex, 0);
+            return;
+        case EINTR:
+            smp_rmb();
+            break;
+        default:
+            MTHPC_BUG_ON(1, "futex(&wq->futex, FUTEX_WAIT, 0)");
+        }
+    }
+}
+
+static __always_inline void mthpc_wq_futex_wake(struct mthpc_workqueue *wq)
+{
+    WRITE_ONCE(wq->futex, 1);
+    atomic_thread_fence(memory_order_release);
+    futex(&wq->futex, FUTEX_WAKE, 1, NULL, NULL, 0);
+}
+
 static struct mthpc_workqueue *mthpc_alloc_workqueue(void)
 {
     struct mthpc_workqueue *wq = malloc(sizeof(struct mthpc_workqueue));
@@ -130,6 +168,7 @@ static struct mthpc_workqueue *mthpc_alloc_workqueue(void)
         return NULL;
 
     wq->count = 0;
+    wq->futex = 0;
     spin_lock_init(&wq->lock);
     mthpc_list_init(&wq->head);
     mthpc_list_init(&wq->node);
@@ -143,7 +182,6 @@ static void *mthpc_worker_run(void *arg)
 {
     struct mthpc_workqueue *wq = arg;
     struct mthpc_work *work;
-    unsigned int progress = 0;
 
     // Sometime, when we do the rcu init in rcu_read_lock() will let
     // mthpc_rcu_node_ptr become NULL but aleady add to rcu list?
@@ -153,17 +191,12 @@ static void *mthpc_worker_run(void *arg)
     while (1) {
         if (!mthpc_wq_active(wq))
             break;
-        if (progress >= 16) {
-            progress = 0;
-            sched_yield();
-        }
-
         spin_lock(&wq->lock);
         if (mthpc_list_empty(&wq->head)) {
-            progress += 4;
             MTHPC_WARN_ON(wq->count > 0, "list is empty but count=%u\n",
                           wq->count);
             spin_unlock(&wq->lock);
+            mthpc_wq_futex_wait(wq);
         } else {
             work = container_of(wq->head.next, struct mthpc_work, node);
             mthpc_list_del(&work->node);
@@ -171,8 +204,8 @@ static void *mthpc_worker_run(void *arg)
             spin_unlock(&wq->lock);
 
             /* We shouldn't hold the lock when running work. */
+            // TODO: provide the container option?
             work->func(work);
-            progress++;
         }
     }
 
@@ -279,6 +312,8 @@ static int __mthpc_schedule_work_on(struct mthpc_workpool *wp, int cpu,
     wq = mthpc_get_workqueue(wp, cpu, work);
     if (!wq)
         return -ENOMEM;
+
+    mthpc_wq_futex_wake(wq);
 
     return 0;
 }

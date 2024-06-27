@@ -105,6 +105,7 @@
 #if __has_feature(thread_sanitizer)
 #include <stdatomic.h>
 #define smp_mb() atomic_thread_fence(memory_order_seq_cst)
+#define smp_rmb() atomic_thread_fence(memory_order_acquire)
 #endif
 #endif
 
@@ -115,9 +116,20 @@
 #endif
 #endif
 
+#ifndef smp_rmb
+#if defined(__GNUC__) && __SANITIZE_THREAD__
+#include <stdatomic.h>
+#define smp_rmb() atomic_thread_fence(memory_order_acquire)
+#endif
+#endif
+
 /* ThreadSanitizer doesn't support __atomic_thread_fence(__ATOMIC_SEQ_CST) */
 #ifndef smp_mb
 #define smp_mb() __atomic_thread_fence(__ATOMIC_SEQ_CST)
+#endif
+
+#ifndef smp_rmb
+#define smp_rmb() __atomic_thread_fence(__ATOMIC_ACQUIRE)
 #endif
 
 #ifndef macro_var_args_count
