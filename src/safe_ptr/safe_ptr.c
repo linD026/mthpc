@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <stdint.h>
 
 #include <mthpc/rcu.h>
 #include <mthpc/safe_ptr.h>
