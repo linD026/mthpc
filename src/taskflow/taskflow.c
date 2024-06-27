@@ -88,6 +88,7 @@ static struct mthpc_task *__mthpc_task_alloc(struct mthpc_taskflow *tf,
     }
 
     MTHPC_INIT_WORK(&task->work, work_name, mthpc_task_worker, arg);
+    task->__is_sub_task_parent = 0;
     mthpc_set_taskflow(tf, task);
     task->func = func;
     task->nr_sub_task = 1;
