@@ -69,7 +69,7 @@ ret=$?
 echo -e "$PRFX execution end"
 
 if [ $ret -ne 0 ]; then
-    echo -e "$PRFX something is wrong, remain the bin files"
+    echo -e "$PRFX something goes wrong, remain the bin files"
     echo -e "$PRFX the compile command is:"
     echo -e "$PRFX     $compile"
     echo -e "$PRFX the execution command is:"
