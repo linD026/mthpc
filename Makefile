@@ -3,7 +3,7 @@ PWD := $(CURDIR)
 INC=$(PWD)/include
 INC_PARAMS=$(INC:%=-I%)
 
-CC ?= gcc
+CC ?= clang
 CFLAGS:=-g 
 CFLAGS+=-Wall
 CFLAGS+=-O1

@@ -25,10 +25,11 @@ fi
 if [ "$sparse" = "1" ]; then
 CC="cgcc"
 else
-CC="gcc"
+CC="clang"
 fi
 
-LIB="libmthpc.so"
+#LIB="libmthpc.so"
+LIB="libmthpc.a"
 
 compile="$CC -o test $file $LIB $CFLAGS"
 exec_cmd=""
@@ -56,7 +57,7 @@ echo -e "$PRFX -----------------------------------------------------------"
 
 echo -e "$PRFX building library..."
 make -C $DIR clean quiet=1 --no-print-directory
-make -C $DIR debug=1 quiet=1 --no-print-directory
+make -C $DIR static=1 debug=1 quiet=1 --no-print-directory
 mv $DIR/$LIB .
 
 echo -e "$PRFX compile program..."
@@ -75,7 +76,7 @@ if [ $ret -ne 0 ]; then
     echo -e "$PRFX     $exec_cmd"
 else
     echo -e "$PRFX cleanup..."
-    rm -f test libmthpc.so
+    rm -f test $LIB
     rm -rf test.dSYM
     make -C $DIR clean quiet=1 --no-print-directory
 fi
