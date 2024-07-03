@@ -31,11 +31,14 @@ fi
 LIB="libmthpc.so"
 
 compile="$CC -o test $file $LIB $CFLAGS"
+exec_cmd=""
 
 function exec_prog {
     if [ "$tsan_set" = "nope" ]; then
+        exec_cmd="LD_LIBRARY_PATH=. ./test"
         LD_LIBRARY_PATH=. ./test
     else
+        exec_cmd="TSAN_OPTIONS=\"$tsan_set\" LD_LIBRARY_PATH=. ./test"
         TSAN_OPTIONS="$tsan_set" LD_LIBRARY_PATH=. ./test
     fi
 }
@@ -61,9 +64,18 @@ $compile
 
 echo -e "$PRFX start executing program..."
 exec_prog
+ret=$?
 echo -e "$PRFX execution end"
 
-echo -e "$PRFX cleanup..."
-rm -f test libmthpc.so
-rm -rf test.dSYM
-make -C $DIR clean quiet=1 --no-print-directory
+if [ $ret -ne 0 ]; then
+    echo -e "$PRFX something is wrong, remain the bin files"
+    echo -e "$PRFX the compile command is:"
+    echo -e "$PRFX     $compile"
+    echo -e "$PRFX the execution command is:"
+    echo -e "$PRFX     $exec_cmd"
+else
+    echo -e "$PRFX cleanup..."
+    rm -f test libmthpc.so
+    rm -rf test.dSYM
+    make -C $DIR clean quiet=1 --no-print-directory
+fi

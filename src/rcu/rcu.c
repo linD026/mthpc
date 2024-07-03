@@ -13,6 +13,8 @@
 #undef _MTHPC_FEATURE
 #define _MTHPC_FEATURE rcu
 
+// TODO: use futex in rcu thread worker
+
 /* User (global) rcu data */
 
 __thread struct mthpc_rcu_node *mthpc_rcu_node_ptr = NULL;

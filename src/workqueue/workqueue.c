@@ -130,8 +130,6 @@ static __always_inline void mthpc_wq_clear_active(struct mthpc_workqueue *wq)
                               memory_order_release);
 }
 
-// TODO: futex with Tsan will report this:
-// FATAL: ThreadSanitizer: unexpected memory mapping 0x631032bd7000-0x631032bd8000
 static __always_inline void mthpc_wq_futex_wait(struct mthpc_workqueue *wq)
 {
     int ret = 0;
