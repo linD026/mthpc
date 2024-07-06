@@ -69,21 +69,50 @@
  * operation.
  */
 
-static atomic_ulong mthpc_sp_rcu_cnt = 0;
-
 struct mthpc_safe_cb {
     atomic_ulong refcount;
     struct mthpc_rcu_data rcu_data;
-    size_t size;
+    atomic_uintptr_t raw_ptr;
     void (*dtor)(void *safe_data);
 };
 
-#define MTHPC_SAFE_INIT(cb, _size, _dtor) \
-    do {                                  \
-        (cb)->refcount = 1;               \
-        (cb)->size = _size;               \
-        (cb)->dtor = _dtor;               \
-    } while (0)
+struct mthpc_cb_retire_obj {
+    void (*lock)(struct mthpc_safe_ptr *sp);
+    void (*unlock)(struct mthpc_safe_ptr *sp);
+    void (*sp_init)(struct mthpc_safe_ptr *sp, struct mthpc_safe_cb *cb);
+    void (*synchronize)(struct mthpc_safe_cb *cb);
+};
+
+static struct mthpc_cb_retire_obj mthpc_cb_retire_obj;
+
+static atomic_ulong mthpc_sp_rcu_cnt = 0;
+
+/* Retire related functions */
+
+static void mthpc_cb_rcu_lock(struct mthpc_safe_ptr *sp)
+{
+    mthpc_rcu_read_lock_internal(sp->rcu_node);
+}
+
+static void mthpc_cb_rcu_unlock(struct mthpc_safe_ptr *sp)
+{
+    mthpc_rcu_read_unlock_internal(sp->rcu_node);
+}
+
+static void mthpc_cb_rcu_init(struct mthpc_safe_ptr *sp,
+                              struct mthpc_safe_cb *cb)
+{
+    // TODO: we should avoid to use the single atomic counter for the rcu id
+    mthpc_rcu_add(&cb->rcu_data, sp->id, &sp->rcu_node);
+}
+
+static void mthpc_cb_synchronize_rcu(struct mthpc_safe_cb *cb)
+{
+    mthpc_synchronize_rcu_internal(&cb->rcu_data);
+    mthpc_rcu_data_exit(&cb->rcu_data);
+}
+
+/* Control block related functions */
 
 static inline struct mthpc_safe_cb *mthpc_cb_load(struct mthpc_safe_ptr *sp)
 {
@@ -97,23 +126,11 @@ static inline void mthpc_cb_store(struct mthpc_safe_ptr *sp,
     atomic_store_explicit(&sp->cb, (uintptr_t)desired, memory_order_release);
 }
 
-static inline void mthpc_cb_xchg(struct mthpc_safe_ptr *sp,
-                                 struct mthpc_safe_cb **desired)
+static inline struct mthpc_safe_cb *mthpc_cb_xchg(struct mthpc_safe_ptr *sp,
+                                                  struct mthpc_safe_cb *desired)
 {
-    atomic_store_explicit(&sp->cb, (uintptr_t)*desired, memory_order_release);
-}
-
-static inline void *mthpc_safe_data_of(struct mthpc_safe_cb *cb)
-{
-    MTHPC_BUG_ON(!cb, "cb == NULL");
-    return (void *)((char *)cb + sizeof(struct mthpc_safe_cb));
-}
-
-static inline struct mthpc_safe_cb *mthpc_safe_cb_of(void *safe_data)
-{
-    MTHPC_BUG_ON(!safe_data, "safe_data == NULL");
-    return (struct mthpc_safe_cb *)((char *)safe_data -
-                                    sizeof(struct mthpc_safe_cb));
+    return (struct mthpc_safe_cb *)atomic_exchange_explicit(
+        &sp->cb, (uintptr_t)desired, memory_order_release);
 }
 
 static int mthpc_cb_get(struct mthpc_safe_cb *cb)
@@ -123,105 +140,83 @@ static int mthpc_cb_get(struct mthpc_safe_cb *cb)
     ret = atomic_fetch_add_explicit(&cb->refcount, 1, memory_order_release);
     MTHPC_WARN_ON(ret == 0, "refcount is zero");
 
-    mthpc_pr_info("sp cb refcnt:%d\n", ret + 1);
-
     return ret + 1;
 }
 
-static int mthpc_cb_put(struct mthpc_safe_cb *cb)
+static int mthpc_cb_put(struct mthpc_safe_cb *cb, struct mthpc_safe_ptr *old)
 {
     int ret;
 
     ret = atomic_fetch_add_explicit(&cb->refcount, -1, memory_order_seq_cst);
     MTHPC_WARN_ON(ret < 1, "refcount is corrupted (refcnt:%d)", ret);
     if (ret == 1) {
-        // TODO: add multiple type of reclamation
-        /* Wait unitl all the read finish the duplication */
-        mthpc_synchronize_rcu_internal(&cb->rcu_data);
+        /* Wait unitl all the reader finish its operations */
+        mthpc_cb_retire_obj.synchronize(cb);
         if (cb->dtor)
-            cb->dtor(mthpc_safe_data_of(cb));
+            cb->dtor((unsigned long *)atomic_load(&cb->raw_ptr));
+        else
+            free((unsigned long *)atomic_load(&cb->raw_ptr));
+    } else {
+        mthpc_rcu_del(&cb->rcu_data, old->id, old->rcu_node);
     }
+
     return ret - 1;
 }
 
-static int mthpc_safe_get(struct mthpc_safe_ptr *sp)
+static inline struct mthpc_safe_cb *mthpc_cb_create(void *__new_data,
+                                                    void (*dtor)(void *))
 {
-    struct mthpc_safe_cb *cb;
+    uintptr_t new_data = (uintptr_t)__new_data;
+    struct mthpc_safe_cb *cb = NULL;
 
-    if (MTHPC_WARN_ON(!sp, "sp == NULL"))
-        return 0;
+    cb = malloc(sizeof(struct mthpc_safe_cb));
+    MTHPC_WARN_ON(!cb, "malloc");
+    if (!cb)
+        return NULL;
 
-    cb = mthpc_cb_load(sp);
-    return mthpc_cb_get(cb);
+    /* control block */
+    cb->refcount = 1;
+    atomic_store_explicit(&cb->raw_ptr, new_data, memory_order_relaxed);
+    cb->dtor = dtor;
+    mthpc_rcu_data_init(&cb->rcu_data, MTHPC_RCU_USR);
+
+    return cb;
 }
 
-// TODO: omit this unused function
-static __allow_unused int mthpc_safe_put(struct mthpc_safe_ptr *sp)
-{
-    int ret;
-    struct mthpc_safe_cb *cb;
-
-    if (MTHPC_WARN_ON(!sp, "sp == NULL"))
-        return 0;
-
-    cb = mthpc_cb_load(sp);
-    ret = mthpc_cb_put(cb);
-    if (!ret)
-        mthpc_cb_store(sp, NULL);
-
-    return ret;
-}
-
-static void mthpc_safe_ptr_add(struct mthpc_safe_ptr *new,
-                               struct mthpc_safe_cb *cb)
-{
-    // TODO: we should avoid to use the single atomic counter for the rcu id
-    mthpc_rcu_add(&cb->rcu_data, new->id, &new->rcu_node);
-    mthpc_cb_store(new, cb);
-}
+/* user APIs */
 
 __allow_unused void mthpc_dump_safe_ptr(struct mthpc_safe_ptr *sp)
 {
     struct mthpc_safe_cb *cb = NULL;
     unsigned long cnt;
-    size_t size;
     void *dtor, *rcu_data;
 
     mthpc_print("Safe ptr dump: %px, id: %lu, rcu node: %px\n", sp, sp->id,
                 sp->rcu_node);
 
-    mthpc_rcu_read_lock_internal(sp->rcu_node);
+    mthpc_cb_retire_obj.lock(sp);
     cb = mthpc_cb_load(sp);
     cnt = atomic_load_explicit(&cb->refcount, memory_order_acquire);
-    size = cb->size;
     dtor = (void *)cb->dtor;
     rcu_data = (void *)&cb->rcu_data;
-    mthpc_rcu_read_unlock_internal(sp->rcu_node);
+    mthpc_cb_retire_obj.unlock(sp);
 
     mthpc_print(
-        "Control block: %px, refcount: %lu rcu data: %px object size:%zu, object dtor: %px\n",
-        cb, cnt, rcu_data, size, dtor);
+        "Control block: %px, refcount: %lu rcu data: %px raw pointer:%px, object dtor: %px\n",
+        cb, cnt, rcu_data, (unsigned long *)atomic_load(&cb->raw_ptr), dtor);
 }
 
-void mthpc_safe_ptr_create(struct mthpc_safe_ptr *sp, size_t size,
+void mthpc_safe_ptr_create(struct mthpc_safe_ptr *sp, void *new_data,
                            void (*dtor)(void *))
 {
     struct mthpc_safe_cb *cb = NULL;
 
-    cb = malloc(sizeof(struct mthpc_safe_cb) + size);
-    MTHPC_WARN_ON(!cb, "malloc");
-    if (!cb)
-        return;
-
-    /* control block */
-    cb->refcount = 1;
-    cb->size = size;
-    cb->dtor = dtor;
-    mthpc_rcu_data_init(&cb->rcu_data, MTHPC_RCU_USR);
+    cb = mthpc_cb_create(new_data, dtor);
 
     /* safe_ptr */
     sp->id = atomic_fetch_add(&mthpc_sp_rcu_cnt, 1);
-    mthpc_safe_ptr_add(sp, cb);
+    mthpc_cb_retire_obj.sp_init(sp, cb);
+    mthpc_cb_store(sp, cb);
 }
 
 void mthpc_safe_ptr_destroy(struct mthpc_safe_ptr *sp)
@@ -229,48 +224,57 @@ void mthpc_safe_ptr_destroy(struct mthpc_safe_ptr *sp)
     struct mthpc_safe_cb *cb = NULL;
 
     cb = mthpc_cb_load(sp);
-    mthpc_rcu_del(&cb->rcu_data, sp->id, sp->rcu_node);
-    mthpc_cb_put(cb);
+    // FIXME: we should remove the rcu_node after exit
+    mthpc_cb_put(cb, sp);
 }
 
-// TODO: might need to remove this API
-void mthpc_safe_ptr_store_sp(struct mthpc_safe_ptr *sp, void *new_safe_data)
+void __mthpc_safe_ptr_store(struct mthpc_safe_ptr *sp, void *new_data,
+                            void (*dtor)(void *))
 {
-    struct mthpc_safe_cb *new_cb = mthpc_safe_cb_of(new_safe_data);
+    struct mthpc_safe_cb *new_cb, *old_cb;
 
-    mthpc_rcu_read_lock_internal(sp->rcu_node);
-    mthpc_cb_xchg(sp, &new_cb);
-    mthpc_rcu_read_unlock_internal(sp->rcu_node);
-    if (new_cb)
-        mthpc_cb_put(new_cb);
+    /* Prepare the new cb. */
+    new_cb = mthpc_cb_create(new_data, dtor);
+
+    old_cb = mthpc_cb_xchg(sp, new_cb);
+    if (!old_cb) {
+        /*
+         * After update the control block pointer in sp,
+         * we need to clean up the relationship between sp and old cb.
+         */
+        mthpc_cb_put(old_cb, sp);
+    }
+    /* After clean up the old relationship, let's build a new one. */
+    mthpc_cb_retire_obj.sp_init(sp, new_cb);
 }
 
-void __mthpc_safe_ptr_store_data(struct mthpc_safe_ptr *sp, void *raw_data,
-                                 size_t size)
+void *mthpc_safe_ptr_load(struct mthpc_safe_ptr *sp)
 {
-    struct mthpc_safe_cb *cb;
-
-    mthpc_rcu_read_lock_internal(sp->rcu_node);
-    cb = mthpc_cb_load(sp);
-    memcpy(mthpc_safe_data_of(cb), raw_data, size);
-    mthpc_rcu_read_unlock_internal(sp->rcu_node);
-}
-
-void mthpc_safe_ptr_load(struct mthpc_safe_ptr *sp, void *dst)
-{
-    unsigned long *ret = dst;
+    unsigned long *ret = NULL;
     struct mthpc_safe_cb *cb = NULL;
 
-    mthpc_rcu_read_lock_internal(sp->rcu_node);
+    mthpc_cb_retire_obj.lock(sp);
     cb = mthpc_cb_load(sp);
-    memcpy(ret, (unsigned long *)mthpc_safe_data_of(cb), cb->size);
-    mthpc_rcu_read_unlock_internal(sp->rcu_node);
+    ret = (unsigned long *)atomic_load_explicit(&cb->raw_ptr,
+                                                memory_order_acquire);
+    mthpc_cb_retire_obj.unlock(sp);
+
+    return ret;
 }
 
-int mthpc_safe_ptr_cmpxhg(struct mthpc_safe_ptr *sp, void *expected,
+int mthpc_safe_ptr_cmpxhg(struct mthpc_safe_ptr *sp, void **expected,
                           void *desired)
 {
-    return 0;
+    struct mthpc_safe_cb *cb;
+    int ret = 0;
+
+    mthpc_cb_retire_obj.lock(sp);
+    cb = mthpc_cb_load(sp);
+    ret = atomic_compare_exchange_strong(&cb->raw_ptr, (uintptr_t *)expected,
+                                         (uintptr_t)desired);
+    mthpc_cb_retire_obj.unlock(sp);
+
+    return ret;
 }
 
 struct mthpc_safe_ptr *
@@ -278,16 +282,30 @@ mthpc_pass_sp_post(struct mthpc_safe_ptr __mthpc_brw *pass_sp,
                    struct mthpc_safe_ptr *sp)
 {
     struct mthpc_safe_ptr *unsafe_sp = disenchant_ptr(pass_sp);
+    struct mthpc_safe_cb *cb = NULL;
 
-    mthpc_safe_get(unsafe_sp);
+    mthpc_cb_retire_obj.lock(sp);
+    cb = mthpc_cb_load(unsafe_sp);
+
+    mthpc_cb_get(cb);
     sp->id = atomic_fetch_add(&mthpc_sp_rcu_cnt, 1);
-    mthpc_safe_ptr_add(sp, mthpc_cb_load(unsafe_sp));
+    mthpc_cb_retire_obj.sp_init(sp, cb);
+    mthpc_cb_store(sp, cb);
+    mthpc_cb_retire_obj.unlock(sp);
+
     return sp;
 }
+
+/* init/exit functions */
 
 static __mthpc_init void mthpc_safe_ptr_init(void)
 {
     mthpc_init_feature();
+    // TODO: provide config for multi-type of reclamation
+    mthpc_cb_retire_obj.lock = mthpc_cb_rcu_lock;
+    mthpc_cb_retire_obj.unlock = mthpc_cb_rcu_unlock;
+    mthpc_cb_retire_obj.sp_init = mthpc_cb_rcu_init;
+    mthpc_cb_retire_obj.synchronize = mthpc_cb_synchronize_rcu;
     mthpc_init_ok();
 }
 

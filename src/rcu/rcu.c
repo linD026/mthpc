@@ -180,7 +180,7 @@ void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type)
     spin_unlock(&mthpc_rcu_meta.lock);
 }
 
-static void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
+void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
 {
     struct mthpc_rcu_node *node, *tmp;
 

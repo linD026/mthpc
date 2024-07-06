@@ -13,30 +13,26 @@ struct mthpc_safe_ptr {
     struct mthpc_rcu_node *rcu_node;
 };
 
-void mthpc_safe_ptr_create(struct mthpc_safe_ptr *stack_sp, size_t size,
+void mthpc_safe_ptr_create(struct mthpc_safe_ptr *stack_sp, void *new_data,
                            void (*dtor)(void *));
-//void mthpc_safe_ptr_drop(struct mthpc_safe_ptr *sp);
 void mthpc_safe_ptr_destroy(struct mthpc_safe_ptr *sp);
-// Store new safe data
-void mthpc_safe_ptr_store_sp(struct mthpc_safe_ptr *sp, void *new);
-// Store the raw data
-void __mthpc_safe_ptr_store_data(struct mthpc_safe_ptr *sp, void *raw_data,
-                                 size_t size);
-#define mthpc_safe_ptr_store_data(sp, raw_data) \
-    __mthpc_safe_ptr_store_data(sp, raw_data, sizeof(__typeof__(raw_data)))
-void mthpc_safe_ptr_load(struct mthpc_safe_ptr *sp, void *dst);
-int mthpc_safe_ptr_cmpxhg(struct mthpc_safe_ptr *sp, void *expected,
+void mthpc_safe_ptr_store(struct mthpc_safe_ptr *sp, void *new_data,
+                          void (*dtor)(void *));
+void *mthpc_safe_ptr_load(struct mthpc_safe_ptr *sp);
+int mthpc_safe_ptr_cmpxhg(struct mthpc_safe_ptr *sp, void **expected,
                           void *desired);
 __allow_unused void mthpc_dump_safe_ptr(struct mthpc_safe_ptr *sp);
 
 /* Declaration APIs */
 
-#define MTHPC_DECLARE_SAFE_PTR(type, name, dtor)          \
+#define MTHPC_DEFINE_SAFE_PTR(name, new_data, dtor)       \
     struct mthpc_safe_ptr name                            \
         __attribute__((cleanup(mthpc_safe_ptr_destroy))); \
     do {                                                  \
-        mthpc_safe_ptr_create(&name, sizeof(type), dtor); \
+        mthpc_safe_ptr_create(&name, new_data, dtor);     \
     } while (0)
+
+#define MTHPC_DECLARE_SAFE_PTR(name) MTHPC_DEFINE_SAFE_PTR(name, NULL, NULL)
 
 /*
  * Borrow APIs

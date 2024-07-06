@@ -9,6 +9,7 @@ struct mthpc_rcu_node;
 #define MTHPC_RCU_TYPE_MASK (MTHPC_RCU_USER)
 
 void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type);
+void mthpc_rcu_data_exit(struct mthpc_rcu_data *data);
 void mthpc_rcu_add(struct mthpc_rcu_data *data, unsigned int id,
                    struct mthpc_rcu_node **rev);
 void mthpc_rcu_del(struct mthpc_rcu_data *data, unsigned int id,

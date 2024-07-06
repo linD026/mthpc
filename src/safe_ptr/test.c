@@ -54,10 +54,10 @@ static void test_store(void)
     mthpc_print("test store\n");
 
     raw_data.cnt = 1;
-    mthpc_safe_ptr_store_data(&first, &raw_data);
+    mthpc_safe_ptr_store(&first, raw_data);
 
     raw_data.cnt = 2;
-    mthpc_safe_ptr_store_data(&second, &raw_data);
+    mthpc_safe_ptr_store(&second, raw_data);
 
     mthpc_safe_ptr_load(&first, &raw_data);
     mthpc_print("first safe_ptr context: %lu\n", atomic_load(&raw_data.cnt));
