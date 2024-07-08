@@ -180,9 +180,10 @@ void mthpc_rcu_data_init(struct mthpc_rcu_data *data, unsigned int type)
     spin_unlock(&mthpc_rcu_meta.lock);
 }
 
-void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
+static void __mthpc_rcu_data_exit(struct mthpc_rcu_data *data, int is_static)
 {
     struct mthpc_rcu_node *node, *tmp;
+    struct mthpc_rcu_data **indirect;
 
     spin_lock(&data->lock);
     node = data->head;
@@ -194,6 +195,25 @@ void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
     data->head = NULL;
     spin_unlock(&data->lock);
     spin_lock_destroy(&data->lock);
+
+    spin_lock(&mthpc_rcu_meta.lock);
+    indirect = &mthpc_rcu_meta.head;
+    while (*indirect) {
+        if (*indirect == data) {
+            *indirect = (*indirect)->next;
+            break;
+        }
+        indirect = &(*indirect)->next;
+    }
+    spin_unlock(&mthpc_rcu_meta.lock);
+
+    if (!is_static)
+        free(data);
+}
+
+void mthpc_rcu_data_exit(struct mthpc_rcu_data *data)
+{
+    __mthpc_rcu_data_exit(data, 0);
 }
 
 /* Provide the API to let the other feature can create their own rcu data. */
@@ -211,7 +231,7 @@ static void __mthpc_exit mthpc_rcu_exit(void)
 {
     mthpc_exit_feature();
     mthpc_synchronize_rcu_all();
-    mthpc_rcu_data_exit(&mthpc_rcu_data);
+    __mthpc_rcu_data_exit(&mthpc_rcu_data, 1);
     spin_lock_destroy(&mthpc_rcu_meta.lock);
     mthpc_exit_ok();
 }
