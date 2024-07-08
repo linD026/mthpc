@@ -53,7 +53,7 @@ struct mthpc_safe_ptr *
 mthpc_pass_sp_post(struct mthpc_safe_ptr __mthpc_brw *brw_sp,
                    struct mthpc_safe_ptr *sp);
 
-struct mthpc_safe_ptr __mthpc_brw *
+static inline struct mthpc_safe_ptr __mthpc_brw *
 mthpc_borrow_safe_ptr(struct mthpc_safe_ptr *sp)
 {
     return enchant_ptr(sp, __mthpc_brw);
@@ -67,7 +67,7 @@ mthpc_borrow_safe_ptr(struct mthpc_safe_ptr *sp)
         mthpc_pass_sp_post(brw_sp, &name);                     \
     } while (0)
 
-struct mthpc_safe_ptr __mthpc_move *
+static inline struct mthpc_safe_ptr __mthpc_move *
 mthpc_move_safe_ptr(struct mthpc_safe_ptr *sp)
 {
     return enchant_ptr(sp, __mthpc_move);

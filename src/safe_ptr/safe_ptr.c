@@ -228,8 +228,8 @@ void mthpc_safe_ptr_destroy(struct mthpc_safe_ptr *sp)
     mthpc_cb_put(cb, sp);
 }
 
-void __mthpc_safe_ptr_store(struct mthpc_safe_ptr *sp, void *new_data,
-                            void (*dtor)(void *))
+void mthpc_safe_ptr_store(struct mthpc_safe_ptr *sp, void *new_data,
+                          void (*dtor)(void *))
 {
     struct mthpc_safe_cb *new_cb, *old_cb;
 
