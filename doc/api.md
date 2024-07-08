@@ -196,14 +196,17 @@ Scoped lock support following lock types:
 #include <mthpc/safe_ptr.h>
 ```
 
-Atomic RAII type of object.
-It is similar to the [`shared_ptr`](https://en.cppreference.com/w/cpp/memory/shared_ptr) in C++.
+It is an atomic [`shared_ptr`](https://en.cppreference.com/w/cpp/memory/shared_ptr).
 Support the [Sparse](https://sparse.docs.kernel.org/en/latest/) checking.
 
 #### Declaration
 
 ```cpp
-MTHPC_DECLARE_SAFE_PTR(type, name, dtor);
+/* Create the safe ptr with raw pointer and their dtor function */
+MTHPC_DEFINE_SAFE_PTR(name, new_data, dtor);
+/* Create the empty safe ptr */
+MTHPC_DECLARE_SAFE_PTR(name);
+/* Create the safe ptr from the borrow/move opeations */
 MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, struct mthpc_safe_ptr __mthpc_brw *brw_sp);
 MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(type, name, struct mthpc_safe_ptr __mthpc_move *move_sp);
 ```
@@ -211,12 +214,11 @@ MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(type, name, struct mthpc_safe_ptr __mthpc_move 
 #### APIs
 
 ```cpp
-/* Store the new protected pointer to this safe pointer */
-void mthpc_safe_ptr_store_sp(struct mthpc_safe_ptr *sp, void *new);
-/* Store the new context to the protected pointer */
-void mthpc_safe_ptr_store_data(sp, raw_data);
+/* Store the new pointer to this safe pointer */
+void mthpc_safe_ptr_store(struct mthpc_safe_ptr *sp, void *new_data,
+                          void (*dtor)(void *));
 /* Load the context of the protected pointer */
-void mthpc_safe_ptr_load(struct mthpc_safe_ptr *sp, void *dst);
+void *mthpc_safe_ptr_load(struct mthpc_safe_ptr *sp);
 /* cmpxchg the context of the protected pointer */
 int mthpc_safe_ptr_cmpxhg(struct mthpc_safe_ptr *sp, void *expected,
                           void *desired);
@@ -235,7 +237,7 @@ function(mthpc_borrow_safe_ptr(safe_ptr));
 
 void function(struct mthpc_safe_ptr __mthpc_brw *borrow_ptr)
 {
-    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(type, name, borrow_ptr);
+    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(name, borrow_ptr);
 
     ...
 }
@@ -249,7 +251,7 @@ function(mthpc_move_safe_ptr(safe_ptr));
 
 void function(struct mthpc_safe_ptr __mthpc_move *move_ptr)
 {
-    MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(type, name, move_ptr);
+    MTHPC_DECLARE_SAFE_PTR_FROM_MOVE(name, move_ptr);
 
     ...
 }

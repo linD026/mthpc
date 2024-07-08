@@ -17,7 +17,7 @@ static void test_dtor(void *data)
 static void get_and_put(struct mthpc_thread_group *th)
 {
     // cb->refcnt_inc
-    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(struct test, safe_ptr, th->args);
+    MTHPC_DECLARE_SAFE_PTR_FROM_BORROW(safe_ptr, th->args);
     struct test *raw_data;
 
     raw_data = mthpc_safe_ptr_load(&safe_ptr);
