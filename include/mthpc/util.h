@@ -101,36 +101,21 @@
     })
 #endif
 
-#if defined(__has_feature)
-#if __has_feature(thread_sanitizer)
 #include <stdatomic.h>
 #define smp_mb() atomic_thread_fence(memory_order_seq_cst)
+
+/*
+ * WARNING: TSan doesn't understand acquire/release yet, so it will
+ * warning something like this:
+ *
+ * warning: ‘atomic_thread_fence’ is not supported with ‘-fsanitize=thread’ [-Wtsan]
+ * 106 | #define smp_rmb() atomic_thread_fence(memory_order_acquire)
+ *     |                   ^~~~~~~~~~~~~~~~~~~
+ *
+ * To avoid this, use __tsan_acquire(void *)/__tsan_release(void *).
+ */
 #define smp_rmb() atomic_thread_fence(memory_order_acquire)
-#endif
-#endif
-
-#ifndef smp_mb
-#if defined(__GNUC__) && __SANITIZE_THREAD__
-#include <stdatomic.h>
-#define smp_mb() atomic_thread_fence(memory_order_seq_cst)
-#endif
-#endif
-
-#ifndef smp_rmb
-#if defined(__GNUC__) && __SANITIZE_THREAD__
-#include <stdatomic.h>
-#define smp_rmb() atomic_thread_fence(memory_order_acquire)
-#endif
-#endif
-
-/* ThreadSanitizer doesn't support __atomic_thread_fence(__ATOMIC_SEQ_CST) */
-#ifndef smp_mb
-#define smp_mb() __atomic_thread_fence(__ATOMIC_SEQ_CST)
-#endif
-
-#ifndef smp_rmb
-#define smp_rmb() __atomic_thread_fence(__ATOMIC_ACQUIRE)
-#endif
+#define smp_wmb() atomic_thread_fence(memory_order_release)
 
 #ifndef macro_var_args_count
 #define macro_var_args_count(...) \
