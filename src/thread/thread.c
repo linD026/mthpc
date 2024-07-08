@@ -221,6 +221,7 @@ void __mthpc_thread_async_wait(void *threads, unsigned int nr)
                                         memory_order_acquire) != group->nr)
                 mthpc_cmb();
         }
+        smp_mb();
         for (int i = 0; i < group->nr; i++)
             pthread_join(group->thread[i], NULL);
         mthpc_group_put_barrier_object(group);
