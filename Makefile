@@ -103,6 +103,11 @@ cscope:
 	find $(PWD) -name "*.c" -o -name "*.h" > $(PWD)/cscope.files
 	cscope -b -q
 
+compile_command:
+	# https://clangd.llvm.org/installation.html
+	bear -- make
+	make clean
+
 indent:
 	clang-format -i include/*/*.[ch]
 	clang-format -i src/*/*.[ch]
