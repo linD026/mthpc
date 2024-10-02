@@ -1,9 +1,12 @@
 #ifndef __MTHPC_FUTEX_H__
 #define __MTHPC_FUTEX_H__
 
-#include <errno.h>
 #include <stdint.h>
+#include <errno.h>
 #include <time.h>
+
+#if (defined(__linux__) && defined(__NR_futex))
+
 #include <poll.h>
 
 #include <linux/futex.h> /* Definition of FUTEX_* constants */
@@ -11,9 +14,6 @@
 #include <unistd.h>
 
 #include <mthpc/util.h>
-
-// TODO: support non-linux system
-//#if (defined(__linux__) && defined(__NR_futex))
 
 static inline int futex(int32_t *uaddr, int op, int32_t val,
                         const struct timespec *timeout, int32_t *uaddr2,
@@ -55,4 +55,22 @@ static inline int futex_async(int32_t *uaddr, int op, int32_t val,
     }
     return ret;
 }
+
+#else
+
+#define FUTEX_WAIT 0x01
+#define FUTEX_WAKE 0x02
+
+int futex(int32_t *uaddr, int op, int32_t val, const struct timespec *timeout,
+          int32_t *uaddr2, int32_t val3);
+
+static inline int futex_async(int32_t *uaddr, int op, int32_t val,
+                              const struct timespec *timeout, int32_t *uaddr2,
+                              int32_t val3)
+{
+    return -EINVAL;
+}
+
+#endif /* defined(__linux__) && defined(__NR_futex) */
+
 #endif /* __MTHPC_FUTEX_H__ */

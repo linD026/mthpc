@@ -13,6 +13,18 @@ done
 
 ###############################################################################
 
+uname_info="$(uname -s)"
+
+
+case "${uname_info}" in
+    Linux*) mc="linux";;
+    Darwin*) mc="mac";;
+    *) mc="unkown"
+esac
+
+
+###############################################################################
+
 DIR="$(pwd)/../.."
 INCLUDE="$DIR/include"
 
@@ -23,13 +35,21 @@ CFLAGS="-g -rdynamic -pthread -I$INCLUDE"
 fi
 
 if [ "$sparse" = "1" ]; then
+
 CC="cgcc"
+
+else
+
+if [ "$mc" = "mac" ]; then
+CC="gcc"
 else
 CC="clang"
 fi
 
+fi
+
 #LIB="libmthpc.so"
-LIB="libmthpc.a"
+LIB="./libmthpc.a"
 
 compile="$CC -o test $file $LIB $CFLAGS"
 exec_cmd=""
@@ -50,7 +70,7 @@ PRFX_GRN='\033[0;32m'
 PRFX_NC='\033[0m'
 PRFX="[${PRFX_GRN}script${PRFX_NC}]"
 echo -e "$PRFX Start testing. feature: $feature"
-echo -e "$PRFX file: $file, debug: $debug"
+echo -e "$PRFX Machine: $mc file: $file, debug: $debug"
 echo -e "$PRFX flags: $CFLAGS"
 echo -e "$PRFX tsan options: $tsan_set"
 echo -e "$PRFX -----------------------------------------------------------"

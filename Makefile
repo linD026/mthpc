@@ -22,6 +22,7 @@ endif
 SRC:=src/centralized_barrier/centralized_barrier.c
 SRC+=src/rcu/rcu.c
 SRC+=src/safe_ptr/safe_ptr.c
+SRC+=src/futex.c
 
 SRC+=src/thread/thread.c
 SRC+=src/taskflow/taskflow.c
@@ -92,6 +93,7 @@ build: lib
 	$(MTHPC_MV) $(BIN) $(BUILD_DIR)/.
 
 clean:
+	$(MTHPC_RM) -f src/*.o
 	$(MTHPC_RM) -f src/*/*.o
 	$(MTHPC_RM) -f $(STATIC_BIN)
 	$(MTHPC_RM) -f $(DYNAMIC_BIN)
