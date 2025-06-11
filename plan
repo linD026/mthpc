@@ -49,6 +49,10 @@ concurrent linked list
 receiver and sender
 softirq: signal (with the task) to workqueue thread?
 
+- upgradable seq lock
+    - See mmap_upgrade_trylock and upgrade_mmap_lock_carefully
+    
+
 ---
 
 basic container - hash table
