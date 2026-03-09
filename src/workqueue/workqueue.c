@@ -143,6 +143,8 @@ static __always_inline void mthpc_wq_futex_wait(struct mthpc_workqueue *wq)
             /* we assume that the wq thread will stay in same cpu. */
             WRITE_ONCE(wq->futex, 0);
             return;
+        case 0:
+            /* fallthrough */
         case EINTR:
             smp_rmb();
             break;
