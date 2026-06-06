@@ -1,9 +1,9 @@
+// TODO: Change to use mthpc sync/thread api
+#include <mthpc/ds/pbst.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-
-#include "pbst.h"
 
 #define DEBUG_PBST(_pbst, fmt, ...)           \
     do {                                      \
