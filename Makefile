@@ -113,6 +113,7 @@ compile_command:
 indent:
 	clang-format -i include/*/*.[ch]
 	clang-format -i src/*/*.[ch]
+	clang-format -i src/ds/*/*.[ch]
 
 ifeq ($(quiet), 1)
 .SILENT:
