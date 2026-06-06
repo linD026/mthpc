@@ -1,4 +1,11 @@
 // TODO: Change to use mthpc sync/thread api
+/*
+ * Fine-grained locking parallel BST:
+ * TODO:
+ *     - Avoid recursive function call (for locking)
+ *     - Performance issue due to locking too many times
+ *     - Support balancing
+ */
 #include <mthpc/ds/pbst.h>
 #include <pthread.h>
 #include <stdlib.h>
